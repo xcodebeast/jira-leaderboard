@@ -1,0 +1,12 @@
+<svg
+	xmlns="http://www.w3.org/2000/svg"
+	viewBox="0 0 64 64"
+	role="img"
+	aria-label="Jira Leaderboard"
+>
+	<rect width="64" height="64" rx="16" fill="#08111f" />
+	<path
+		d="M15 45V29h8v16h-8Zm13 0V19h8v26h-8Zm13 0V11h8v34h-8Z"
+		fill="#8bffca"
+	/>
+</svg>

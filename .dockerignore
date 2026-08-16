@@ -1,0 +1,13 @@
+.git
+.gitignore
+.build
+.swiftpm
+.svelte-kit
+build
+DerivedData
+dist
+node_modules
+.env
+.env.*
+!.env.example
+.DS_Store
