@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { qualityAssuranceBoardIssuePageRequest } from "../src/lib/server/jira-client";
+import {
+	boardIssuePageRequest,
+	qualityAssuranceBoardIssuePageRequest,
+} from "../src/lib/server/jira-client";
 
 describe("Jira quality assurance issue request", () => {
 	test("filters a QA board by a sprint owned by another board", () => {
@@ -29,5 +32,20 @@ describe("Jira quality assurance issue request", () => {
 		);
 
 		expect(pageRequest.query.has("nextPageToken")).toBe(false);
+	});
+
+	test("supports a board-scoped all-time query", () => {
+		const pageRequest = boardIssuePageRequest(
+			84,
+			["summary", "status", "customfield_10016"],
+			'status = "Done"',
+			null,
+		);
+
+		expect(pageRequest.pathname).toBe("/rest/software/1.0/board/84/issue");
+		expect(pageRequest.query.get("jql")).toBe('status = "Done"');
+		expect(pageRequest.query.get("fields")).toBe(
+			"summary,status,customfield_10016",
+		);
 	});
 });

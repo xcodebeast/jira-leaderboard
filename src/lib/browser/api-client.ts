@@ -174,6 +174,36 @@ export async function loadQualityAssuranceSprintIssues(
 	return response.issues;
 }
 
+export async function loadDevelopmentAllTimeIssues(
+	boardIdentifier: number,
+	doneStatus: string,
+	fieldMapping: JiraFieldMapping,
+): Promise<JiraIssue[]> {
+	const response = await requestJson<{ issues: JiraIssue[] }>(
+		"/api/jira/development-all-time-issues",
+		{
+			method: "POST",
+			body: { boardIdentifier, doneStatus, fieldMapping },
+		},
+	);
+	return response.issues;
+}
+
+export async function loadQualityAssuranceAllTimeIssues(
+	boardIdentifier: number,
+	doneStatus: string,
+	fieldMapping: QualityAssuranceFieldMapping,
+): Promise<JiraQualityAssuranceIssue[]> {
+	const response = await requestJson<{ issues: JiraQualityAssuranceIssue[] }>(
+		"/api/jira/quality-assurance-all-time-issues",
+		{
+			method: "POST",
+			body: { boardIdentifier, doneStatus, fieldMapping },
+		},
+	);
+	return response.issues;
+}
+
 interface PeriodIssueRequest {
 	startDate: string;
 	endDate: string;

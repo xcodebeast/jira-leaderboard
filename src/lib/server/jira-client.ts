@@ -1,3 +1,4 @@
+import { buildDoneIssuesQuery } from "../domain/all-time-performance";
 import type {
 	JiraBoard,
 	JiraField,
@@ -266,15 +267,15 @@ export function normalizeJiraQualityAssuranceIssue(
 	};
 }
 
-export function qualityAssuranceBoardIssuePageRequest(
+export function boardIssuePageRequest(
 	boardIdentifier: number,
-	sprintIdentifier: number,
 	requestedFields: string[],
+	jiraQuery: string,
 	nextPageToken: string | null,
 ): { pathname: string; query: URLSearchParams } {
 	const query = new URLSearchParams({
 		fields: requestedFields.join(","),
-		jql: `sprint = ${sprintIdentifier}`,
+		jql: jiraQuery,
 		maxResults: "100",
 	});
 	if (nextPageToken) {
@@ -285,6 +286,20 @@ export function qualityAssuranceBoardIssuePageRequest(
 		pathname: `/rest/software/1.0/board/${boardIdentifier}/issue`,
 		query,
 	};
+}
+
+export function qualityAssuranceBoardIssuePageRequest(
+	boardIdentifier: number,
+	sprintIdentifier: number,
+	requestedFields: string[],
+	nextPageToken: string | null,
+): { pathname: string; query: URLSearchParams } {
+	return boardIssuePageRequest(
+		boardIdentifier,
+		requestedFields,
+		`sprint = ${sprintIdentifier}`,
+		nextPageToken,
+	);
 }
 
 export class JiraRequestError extends Error {
@@ -666,36 +681,46 @@ export class JiraClient {
 			fieldMapping.storyPointsFieldIdentifier,
 			fieldMapping.testerFieldIdentifier,
 		].sort();
-		const issues: JiraQualityAssuranceIssue[] = [];
-		let nextPageToken: string | null = null;
-		for (let pageNumber = 0; pageNumber < 500; pageNumber += 1) {
-			const pageRequest = qualityAssuranceBoardIssuePageRequest(
-				boardIdentifier,
-				sprintIdentifier,
-				requestedFields,
-				nextPageToken,
-			);
-			const page = requiredObject(
-				await this.request(pageRequest.pathname, { query: pageRequest.query }),
-				"quality assurance issue page",
-			);
-			const pageIssues = arrayValue(page.issues).map((issue) =>
-				normalizeJiraQualityAssuranceIssue(issue, fieldMapping),
-			);
-			issues.push(...pageIssues);
-			nextPageToken = stringValue(page.nextPageToken);
-			if (
-				pageIssues.length === 0 ||
-				booleanValue(page.isLast) === true ||
-				!nextPageToken
-			) {
-				return issues;
-			}
-		}
+		return this.boardIssues(
+			boardIdentifier,
+			requestedFields,
+			`sprint = ${sprintIdentifier}`,
+			"quality assurance issue page",
+			(issue) => normalizeJiraQualityAssuranceIssue(issue, fieldMapping),
+		);
+	}
 
-		throw new JiraRequestError(
-			502,
-			"Jira returned too many quality assurance issue pages.",
+	async developmentBoardDoneIssues(
+		boardIdentifier: number,
+		doneStatus: string,
+		fieldMapping: JiraFieldMapping,
+	): Promise<JiraIssue[]> {
+		return this.boardIssues(
+			boardIdentifier,
+			this.requestedIssueFields(fieldMapping, false),
+			buildDoneIssuesQuery(doneStatus),
+			"development all-time issue page",
+			(issue) => normalizeJiraIssue(issue, fieldMapping),
+		);
+	}
+
+	async qualityAssuranceBoardDoneIssues(
+		boardIdentifier: number,
+		doneStatus: string,
+		fieldMapping: QualityAssuranceFieldMapping,
+	): Promise<JiraQualityAssuranceIssue[]> {
+		const requestedFields = [
+			"summary",
+			"status",
+			fieldMapping.storyPointsFieldIdentifier,
+			fieldMapping.testerFieldIdentifier,
+		].sort();
+		return this.boardIssues(
+			boardIdentifier,
+			requestedFields,
+			buildDoneIssuesQuery(doneStatus),
+			"quality assurance all-time issue page",
+			(issue) => normalizeJiraQualityAssuranceIssue(issue, fieldMapping),
 		);
 	}
 
@@ -757,5 +782,43 @@ export class JiraClient {
 		}
 
 		return [...fields].sort();
+	}
+
+	private async boardIssues<Issue>(
+		boardIdentifier: number,
+		requestedFields: string[],
+		jiraQuery: string,
+		pageDescription: string,
+		normalizeIssue: (value: unknown) => Issue,
+	): Promise<Issue[]> {
+		const issues: Issue[] = [];
+		let nextPageToken: string | null = null;
+		for (let pageNumber = 0; pageNumber < 500; pageNumber += 1) {
+			const pageRequest = boardIssuePageRequest(
+				boardIdentifier,
+				requestedFields,
+				jiraQuery,
+				nextPageToken,
+			);
+			const page = requiredObject(
+				await this.request(pageRequest.pathname, { query: pageRequest.query }),
+				pageDescription,
+			);
+			const pageIssues = arrayValue(page.issues).map(normalizeIssue);
+			issues.push(...pageIssues);
+			nextPageToken = stringValue(page.nextPageToken);
+			if (
+				pageIssues.length === 0 ||
+				booleanValue(page.isLast) === true ||
+				!nextPageToken
+			) {
+				return issues;
+			}
+		}
+
+		throw new JiraRequestError(
+			502,
+			"Jira returned too many board issue pages.",
+		);
 	}
 }

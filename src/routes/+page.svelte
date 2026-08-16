@@ -13,6 +13,7 @@ import {
 	saveConfiguration,
 	saveRememberedJiraSiteUrl,
 } from "$lib/browser/configuration";
+import AllTimeDashboard from "$lib/components/AllTimeDashboard.svelte";
 import AppShell from "$lib/components/AppShell.svelte";
 import BoardSetup from "$lib/components/BoardSetup.svelte";
 import ErrorBanner from "$lib/components/ErrorBanner.svelte";
@@ -24,7 +25,12 @@ import QualityAssuranceDashboard from "$lib/components/QualityAssuranceDashboard
 import SettingsPanel from "$lib/components/SettingsPanel.svelte";
 import SprintDashboard from "$lib/components/SprintDashboard.svelte";
 
-type ApplicationView = "sprint" | "qualityAssurance" | "period" | "settings";
+type ApplicationView =
+	| "sprint"
+	| "qualityAssurance"
+	| "allTime"
+	| "period"
+	| "settings";
 
 let session = $state<SessionStatus>({ connected: false });
 let configuration = $state<AppConfiguration | null>(null);
@@ -131,6 +137,8 @@ onMount(initializeApplication);
 				developmentBoardName={configuration.boardName}
 				configuration={configuration.qualityAssurance}
 			/>
+		{:else if activeView === "allTime"}
+			<AllTimeDashboard {configuration} />
 		{:else if activeView === "period"}
 			<PeriodComparison {configuration} />
 		{:else}

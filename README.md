@@ -6,6 +6,7 @@ Jira Leaderboard is a simple, stateless web dashboard for comparing sprint resul
 - Picks the current sprint and suggests the previous one
 - Lets you pick from recent sprints and see sprint history
 - Tracks work by developer, using the Jira `Developer` field
+- Shows separate all-time developer and QA leaderboards for completed work
 - Shows ticket stats: Done, QA, Ready for QA, story points, bounces, ticket totals
 - Compares sprint progress by developer
 - Optionally compares across QA/development boards, tracking the `Tester` field
@@ -60,18 +61,6 @@ JIRA_BOARD_ID=123 \
 JIRA_PROJECT_KEY=DEMO \
 bun test ./Tests/live-jira.test.ts
 ```
-
-See [docs/TESTING.md](docs/TESTING.md) for details.
-
-## Deploying to Railway
-
-- Use the included `Dockerfile` (with Bun)
-- Set `SESSION_ENCRYPTION_KEY` to a new value (`openssl rand -base64 32`)
-- Optionally set `JIRA_ALLOWED_HOSTS` (e.g., `company.atlassian.net`)
-- Deploy—Railway provides `PORT`
-- Set health check path to `/api/health`
-
-No database or volumes are needed. Check [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) before exposing publicly.
 
 ## Technology
 
