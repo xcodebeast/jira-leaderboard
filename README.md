@@ -59,7 +59,7 @@ JIRA_EMAIL=you@company.com \
 JIRA_API_TOKEN=your-token \
 JIRA_BOARD_ID=123 \
 JIRA_PROJECT_KEY=DEMO \
-bun test ./Tests/live-jira.test.ts
+bun test ./tests/live-jira.test.ts
 ```
 
 ## Technology
@@ -78,7 +78,7 @@ src/lib/server/     Encryption, validation, Jira API calls
 src/lib/browser/    Local settings and browser APIs
 src/lib/components/ UI components
 src/routes/api/     API routes
-Tests/              All tests (unit/security/live)
+tests/              All tests (unit/security/live)
 ```
 
 The old SwiftUI version is still available at commit `0fe9901`.
