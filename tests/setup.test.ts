@@ -5,7 +5,7 @@ import {
 } from "../src/lib/domain/setup";
 
 describe("Jira setup suggestion", () => {
-	test("prefers the board estimation field and limits statuses to the board", () => {
+	test("prefers board suggestions while exposing every Jira status", () => {
 		const suggestion = buildJiraSetupSuggestion(
 			{ identifier: 42, name: "Example Scrum Board", type: "scrum" },
 			{
@@ -25,6 +25,7 @@ describe("Jira setup suggestion", () => {
 				{ identifier: "200", name: "QA" },
 				{ identifier: "300", name: "Released" },
 				{ identifier: "400", name: "Not on this board" },
+				{ identifier: "401", name: "Not on this board" },
 			],
 		);
 
@@ -37,6 +38,7 @@ describe("Jira setup suggestion", () => {
 			readyForQualityAssurance: "Ready for QA",
 		});
 		expect(suggestion.availableStatuses.map((status) => status.name)).toEqual([
+			"Not on this board",
 			"QA",
 			"Ready for QA",
 			"Released",
@@ -132,6 +134,9 @@ describe("Jira setup suggestion", () => {
 				{ identifier: "100", name: "Ready for QA" },
 				{ identifier: "200", name: "In QA" },
 				{ identifier: "300", name: "Verified" },
+				{ identifier: "400", name: "Done" },
+				{ identifier: "401", name: "Done" },
+				{ identifier: "500", name: "Not on the QA board" },
 			],
 		);
 
@@ -143,5 +148,12 @@ describe("Jira setup suggestion", () => {
 			done: "Verified",
 			readyForQualityAssurance: "Ready for QA",
 		});
+		expect(suggestion.availableStatuses.map((status) => status.name)).toEqual([
+			"Done",
+			"In QA",
+			"Not on the QA board",
+			"Ready for QA",
+			"Verified",
+		]);
 	});
 });

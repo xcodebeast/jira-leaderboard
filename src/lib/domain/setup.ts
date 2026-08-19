@@ -88,6 +88,23 @@ function selectStatusName(
 	);
 }
 
+function uniqueStatusesByName(statuses: JiraStatus[]): JiraStatus[] {
+	const statusesByName = new Map<string, JiraStatus>();
+	for (const status of statuses) {
+		const existingStatus = statusesByName.get(status.name);
+		if (
+			!existingStatus ||
+			status.identifier.localeCompare(existingStatus.identifier) < 0
+		) {
+			statusesByName.set(status.name, status);
+		}
+	}
+
+	return [...statusesByName.values()].sort((leftStatus, rightStatus) =>
+		leftStatus.name.localeCompare(rightStatus.name),
+	);
+}
+
 export function buildJiraSetupSuggestion(
 	board: JiraBoard,
 	boardConfiguration: JiraBoardConfiguration,
@@ -101,15 +118,12 @@ export function buildJiraSetupSuggestion(
 	const boardStatuses = allStatuses.filter((status) =>
 		boardStatusIdentifiers.has(status.identifier),
 	);
-	const availableStatuses =
+	const suggestedStatuses =
 		boardStatuses.length > 0 ? boardStatuses : allStatuses;
 	const sortedFields = [...allFields].sort((leftField, rightField) =>
 		leftField.name.localeCompare(rightField.name),
 	);
-	const sortedStatuses = [...availableStatuses].sort(
-		(leftStatus, rightStatus) =>
-			leftStatus.name.localeCompare(rightStatus.name),
-	);
+	const sortedStatuses = uniqueStatusesByName(allStatuses);
 	const sortedProjects = [...boardProjects].sort((leftProject, rightProject) =>
 		leftProject.name.localeCompare(rightProject.name),
 	);
@@ -137,17 +151,17 @@ export function buildJiraSetupSuggestion(
 			done: selectStatusName(
 				defaultStatusMapping.done,
 				boardConfiguration.doneColumnStatusIdentifiers,
-				availableStatuses,
+				suggestedStatuses,
 			),
 			qualityAssurance: selectStatusName(
 				defaultStatusMapping.qualityAssurance,
 				[],
-				availableStatuses,
+				suggestedStatuses,
 			),
 			readyForQualityAssurance: selectStatusName(
 				defaultStatusMapping.readyForQualityAssurance,
 				[],
-				availableStatuses,
+				suggestedStatuses,
 			),
 		},
 		defaultProjectKey: sortedProjects.length === 1 ? sortedProjects[0].key : "",
@@ -169,7 +183,7 @@ export function buildQualityAssuranceSetupSuggestion(
 	const boardStatuses = allStatuses.filter((status) =>
 		boardStatusIdentifiers.has(status.identifier),
 	);
-	const availableStatuses =
+	const suggestedStatuses =
 		boardStatuses.length > 0 ? boardStatuses : allStatuses;
 
 	return {
@@ -186,19 +200,17 @@ export function buildQualityAssuranceSetupSuggestion(
 			done: selectStatusName(
 				defaultQualityAssuranceStatusMapping.done,
 				boardConfiguration.doneColumnStatusIdentifiers,
-				availableStatuses,
+				suggestedStatuses,
 			),
 			readyForQualityAssurance: selectStatusName(
 				defaultQualityAssuranceStatusMapping.readyForQualityAssurance,
 				[],
-				availableStatuses,
+				suggestedStatuses,
 			),
 		},
 		availableFields: [...allFields].sort((leftField, rightField) =>
 			leftField.name.localeCompare(rightField.name),
 		),
-		availableStatuses: [...availableStatuses].sort((leftStatus, rightStatus) =>
-			leftStatus.name.localeCompare(rightStatus.name),
-		),
+		availableStatuses: uniqueStatusesByName(allStatuses),
 	};
 }
