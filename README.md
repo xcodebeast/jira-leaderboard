@@ -15,12 +15,9 @@ Jira Leaderboard is a simple, stateless web dashboard for comparing sprint resul
 ## Privacy and Security
 
 - No database: the server never stores users, Jira data, or reports.
-- Preferences (board/QA board/status/etc.) save in your browser's localStorage, **not** Jira credentials.
-- Jira site, email, and API token are encrypted using AES-256 into a secure cookie (unreadable by JavaScript).
-- SESSION_ENCRYPTION_KEY stays server-side. Changing it logs everyone out.
-- Allowed Jira hosts default to `*.atlassian.net`, but you can override with `JIRA_ALLOWED_HOSTS`.
+- Preferences (board/QA board/status/etc.) save in your browser's localStorage.
+- Jira site, email, and API token are encrypted using AES-256 into a secure cookie.
 - All APIs are read-only; the server cannot change data in Jira.
-- Only safe, secure API operations are exposed.
 
 ## Quick Start (Local with Bun)
 
@@ -66,22 +63,8 @@ bun test ./tests/live-jira.test.ts
 
 - Bun (package manager, runtime, tests)
 - SvelteKit 2 (with Svelte 5)
-- Tailwind CSS 4 (compiled, no runtime)
+- Tailwind CSS 4
 - Biome 2 (format/lint)
-- Runs with SvelteKit Node adapter (on Bun)
-
-## Structure
-
-```
-src/lib/domain/     Sprint and project logic
-src/lib/server/     Encryption, validation, Jira API calls
-src/lib/browser/    Local settings and browser APIs
-src/lib/components/ UI components
-src/routes/api/     API routes
-tests/              All tests (unit/security/live)
-```
-
-The old SwiftUI version is still available at commit `0fe9901`.
 
 ## License
 

@@ -1,52 +1,55 @@
 <script lang="ts">
-import { onMount } from "svelte";
-import { type ConnectedSession, connectJira } from "../browser/api-client";
-import {
-	loadRememberedJiraSiteUrl,
-	saveRememberedJiraSiteUrl,
-} from "../browser/configuration";
-import ErrorBanner from "./ErrorBanner.svelte";
-import LogoMark from "./LogoMark.svelte";
-import TokenCreationModal from "./TokenCreationModal.svelte";
+	import { onMount } from "svelte";
+	import { type ConnectedSession, connectJira } from "../browser/api-client";
+	import {
+		loadRememberedJiraSiteUrl,
+		saveRememberedJiraSiteUrl,
+	} from "../browser/configuration";
+	import ErrorBanner from "./ErrorBanner.svelte";
+	import GitHubIcon from "./icons/GitHubIcon.svelte";
+	import LogoMark from "./LogoMark.svelte";
+	import TokenCreationModal from "./TokenCreationModal.svelte";
 
-interface Properties {
-	onConnected: (session: ConnectedSession) => void;
-}
-
-let { onConnected }: Properties = $props();
-let jiraSiteUrl = $state("");
-let emailAddress = $state("");
-let apiToken = $state("");
-let showsToken = $state(false);
-let isConnecting = $state(false);
-let errorMessage = $state("");
-let showsTokenTutorial = $state(false);
-
-async function handleSubmit(event: SubmitEvent): Promise<void> {
-	event.preventDefault();
-	isConnecting = true;
-	errorMessage = "";
-	try {
-		const connectedSession = await connectJira({
-			jiraSiteUrl,
-			emailAddress,
-			apiToken,
-		});
-		saveRememberedJiraSiteUrl(connectedSession.jiraSiteUrl);
-		onConnected(connectedSession);
-	} catch (error) {
-		errorMessage =
-			error instanceof Error ? error.message : "Jira could not be connected.";
-	} finally {
-		isConnecting = false;
+	interface Properties {
+		onConnected: (session: ConnectedSession) => void;
 	}
-}
 
-onMount(() => {
-	if (!jiraSiteUrl) {
-		jiraSiteUrl = loadRememberedJiraSiteUrl();
+	let { onConnected }: Properties = $props();
+	let jiraSiteUrl = $state("");
+	let emailAddress = $state("");
+	let apiToken = $state("");
+	let showsToken = $state(false);
+	let isConnecting = $state(false);
+	let errorMessage = $state("");
+	let showsTokenTutorial = $state(false);
+
+	async function handleSubmit(event: SubmitEvent): Promise<void> {
+		event.preventDefault();
+		isConnecting = true;
+		errorMessage = "";
+		try {
+			const connectedSession = await connectJira({
+				jiraSiteUrl,
+				emailAddress,
+				apiToken,
+			});
+			saveRememberedJiraSiteUrl(connectedSession.jiraSiteUrl);
+			onConnected(connectedSession);
+		} catch (error) {
+			errorMessage =
+				error instanceof Error
+					? error.message
+					: "Jira could not be connected.";
+		} finally {
+			isConnecting = false;
+		}
 	}
-});
+
+	onMount(() => {
+		if (!jiraSiteUrl) {
+			jiraSiteUrl = loadRememberedJiraSiteUrl();
+		}
+	});
 </script>
 
 <main
@@ -63,8 +66,8 @@ onMount(() => {
 				Turn Jira activity into a clear team signal.
 			</h1>
 			<p class="mt-6 max-w-lg text-base leading-7 text-muted sm:text-lg">
-				See completed work, projected points, bounces, and period-over-period
-				movement without exporting a spreadsheet.
+				See completed work, projected points, bounces, and
+				period-over-period movement without exporting a spreadsheet.
 			</p>
 
 			<div class="mt-10 grid gap-4 sm:grid-cols-3">
@@ -84,6 +87,16 @@ onMount(() => {
 					One-time setup
 				</p>
 			</div>
+
+			<a
+				class="mt-8 inline-flex items-center gap-2 rounded-xl border border-line/70 bg-panel/60 px-4 py-2.5 text-sm font-semibold text-ice transition-colors hover:border-mint/50 hover:text-mint"
+				href="https://github.com/xcodebeast/jira-leaderboard"
+				target="_blank"
+				rel="noreferrer"
+			>
+				<GitHubIcon />
+				Source code
+			</a>
 		</section>
 
 		<section class="surface-card rounded-3xl p-5 sm:p-8">
@@ -106,7 +119,7 @@ onMount(() => {
 						placeholder="https://company.atlassian.net"
 						bind:value={jiraSiteUrl}
 						required
-					>
+					/>
 				</label>
 				<label class="block">
 					<span class="mb-2 block text-sm font-semibold text-ice"
@@ -120,7 +133,7 @@ onMount(() => {
 						placeholder="name@company.com"
 						bind:value={emailAddress}
 						required
-					>
+					/>
 				</label>
 				<div class="block">
 					<div
@@ -145,7 +158,7 @@ onMount(() => {
 							placeholder="Paste your read-only token"
 							bind:value={apiToken}
 							required
-						>
+						/>
 						<button
 							class="absolute inset-y-0 right-3 text-xs font-semibold text-muted hover:text-ice"
 							type="button"

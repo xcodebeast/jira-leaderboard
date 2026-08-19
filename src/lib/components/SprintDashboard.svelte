@@ -69,10 +69,6 @@ let totalBounceCount = $derived(
 let totalTickets = $derived(
 	summaries.reduce((total, summary) => total + summary.tickets.length, 0),
 );
-let maximumProjectedPoints = $derived(
-	Math.max(1, ...summaries.map((summary) => projectedSprintPoints(summary))),
-);
-
 const numberFormatter = new Intl.NumberFormat("en-US", {
 	maximumFractionDigits: 1,
 });
@@ -305,7 +301,9 @@ onMount(loadSprintList);
 
 	{#if isLoadingSprints || isLoadingReport}
 		<LoadingState
-			message={isLoadingSprints ? "Finding recent sprints…" : "Calculating sprint performance…"}
+			message={isLoadingSprints
+				? "Finding recent sprints…"
+				: "Calculating sprint performance…"}
 		/>
 	{:else if hasReport}
 		<section class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -388,10 +386,15 @@ onMount(loadSprintList);
 									<td class="px-6 py-4">
 										<div class="flex items-center gap-3">
 											<span class="w-5 font-mono text-xs text-muted"
-												>{String(rank + 1).padStart(2, "0")}</span
+												>{String(rank + 1).padStart(
+													2,
+													"0",
+												)}</span
 											><span
 												class="grid size-9 place-items-center rounded-xl bg-mint/10 text-xs font-bold text-mint"
-												>{developerInitials(summary.developer)}</span
+												>{developerInitials(
+													summary.developer,
+												)}</span
 											><span class="font-semibold text-ice"
 												>{summary.developer}</span
 											>
@@ -403,30 +406,24 @@ onMount(loadSprintList);
 										{formatNumber(summary.donePoints)}
 									</td>
 									<td class="metric-value px-4 py-4 text-right text-ice">
-										{formatNumber(summary.qualityAssurancePoints)}
+										{formatNumber(
+											summary.qualityAssurancePoints,
+										)}
 									</td>
 									<td class="metric-value px-4 py-4 text-right text-ice">
-										{formatNumber(summary.readyForQualityAssurancePoints)}
+										{formatNumber(
+											summary.readyForQualityAssurancePoints,
+										)}
 									</td>
-									<td class="px-4 py-4">
-										<div class="flex items-center justify-end gap-3">
-											<div
-												class="h-1.5 w-20 overflow-hidden rounded-full bg-line"
-											>
-												<div
-													class="h-full rounded-full bg-violet"
-													style={`width: ${(projectedSprintPoints(summary) / maximumProjectedPoints) * 100}%`}
-												></div>
-											</div>
-											<span
-												class="metric-value w-9 text-right font-bold text-violet"
-												>{formatNumber(projectedSprintPoints(summary))}</span
-											>
-										</div>
+									<td class="metric-value px-4 py-4 text-right text-violet">
+										{formatNumber(
+											projectedSprintPoints(summary),
+										)}
 									</td>
 									<td
 										class="metric-value px-4 py-4 text-right"
-										class:text-coral={summary.bounceCount > 0}
+										class:text-coral={summary.bounceCount >
+											0}
 									>
 										{formatNumber(summary.bounceCount)}
 									</td>
@@ -436,13 +433,22 @@ onMount(loadSprintList);
 												class="cursor-pointer text-xs font-semibold text-muted hover:text-ice"
 											>
 												{summary.tickets.length}
-												{summary.tickets.length === 1 ? "ticket" : "tickets"}
+												{summary.tickets.length === 1
+													? "ticket"
+													: "tickets"}
 											</summary>
 											<p
 												class="mt-2 text-xs leading-5 text-muted"
-												title={summary.tickets.map((ticket) => ticket.summary).join(" · ")}
+												title={summary.tickets
+													.map(
+														(ticket) =>
+															ticket.summary,
+													)
+													.join(" · ")}
 											>
-												{summary.tickets.map(sprintTicketDisplay).join(", ")}
+												{summary.tickets
+													.map(sprintTicketDisplay)
+													.join(", ")}
 											</p>
 										</details>
 									</td>
@@ -478,7 +484,9 @@ onMount(loadSprintList);
 								</h3>
 								<span
 									class={`metric-value text-lg font-bold ${deltaClass(comparison.projectedPointsDelta)}`}
-									>{formatDelta(comparison.projectedPointsDelta)}</span
+									>{formatDelta(
+										comparison.projectedPointsDelta,
+									)}</span
 								>
 							</div>
 							<div class="mt-3 grid grid-cols-3 gap-2 text-xs">
@@ -486,21 +494,27 @@ onMount(loadSprintList);
 									Done
 									<span
 										class={`ml-1 font-mono ${deltaClass(comparison.donePointsDelta)}`}
-										>{formatDelta(comparison.donePointsDelta)}</span
+										>{formatDelta(
+											comparison.donePointsDelta,
+										)}</span
 									>
 								</p>
 								<p class="text-muted">
 									QA
 									<span
 										class={`ml-1 font-mono ${deltaClass(comparison.qualityAssurancePointsDelta)}`}
-										>{formatDelta(comparison.qualityAssurancePointsDelta)}</span
+										>{formatDelta(
+											comparison.qualityAssurancePointsDelta,
+										)}</span
 									>
 								</p>
 								<p class="text-muted">
 									Bounce
 									<span
 										class={`ml-1 font-mono ${deltaClass(-comparison.bounceCountDelta)}`}
-										>{formatDelta(comparison.bounceCountDelta)}</span
+										>{formatDelta(
+											comparison.bounceCountDelta,
+										)}</span
 									>
 								</p>
 							</div>

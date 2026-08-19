@@ -35,6 +35,27 @@
 						]
 					}
 				}
+			},
+			"complexity": {
+				"preset": "recommended"
+			},
+			"correctness": {
+				"preset": "recommended"
+			},
+			"security": {
+				"preset": "recommended"
+			},
+			"suspicious": {
+				"preset": "recommended"
+			},
+			"performance": {
+				"preset": "recommended"
+			},
+			"a11y": {
+				"preset": "recommended"
+			},
+			"nursery": {
+				"preset": "recommended"
 			}
 		}
 	},

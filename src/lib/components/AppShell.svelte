@@ -2,6 +2,7 @@
 import type { Snippet } from "svelte";
 import type { ConnectedSession } from "../browser/api-client";
 import type { AppConfiguration } from "../browser/configuration";
+import GitHubIcon from "./icons/GitHubIcon.svelte";
 import LogoMark from "./LogoMark.svelte";
 
 export type ApplicationView =
@@ -119,7 +120,18 @@ let navigationItems = $derived<
 	<footer
 		class="mx-auto flex max-w-[94rem] flex-col gap-2 border-t border-line/50 px-5 py-7 text-xs text-muted sm:flex-row sm:items-center sm:justify-between sm:px-8"
 	>
-		<p>Jira Leaderboard · stateless by design</p>
+		<div class="flex items-center gap-4">
+			<p>Jira Leaderboard · stateless by design</p>
+			<a
+				class="inline-flex items-center gap-1.5 font-semibold transition-colors hover:text-ice"
+				href="https://github.com/xcodebeast/jira-leaderboard"
+				target="_blank"
+				rel="noreferrer"
+			>
+				<GitHubIcon />
+				<span>GitHub</span>
+			</a>
+		</div>
 		<p>
 			Preferences stay in this browser. Credentials stay in an encrypted
 			HttpOnly cookie.
