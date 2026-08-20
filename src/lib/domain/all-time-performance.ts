@@ -1,4 +1,9 @@
-import type { JiraIssue, JiraQualityAssuranceIssue } from "./jira";
+import {
+	type JiraIssue,
+	type JiraQualityAssuranceIssue,
+	unassignedDeveloperName,
+	unassignedTesterName,
+} from "./jira";
 
 export interface AllTimeLeaderboardEntry {
 	contributor: string;
@@ -56,11 +61,13 @@ export function summarizeDeveloperAllTimeIssues(
 	doneStatus: string,
 ): AllTimeLeaderboardEntry[] {
 	return summarizeCompletedIssues(
-		issues.map((issue) => ({
-			statusName: issue.statusName,
-			storyPoints: issue.storyPoints,
-			contributor: issue.developer,
-		})),
+		issues
+			.filter((issue) => issue.developer !== unassignedDeveloperName)
+			.map((issue) => ({
+				statusName: issue.statusName,
+				storyPoints: issue.storyPoints,
+				contributor: issue.developer,
+			})),
 		doneStatus,
 	);
 }
@@ -70,11 +77,13 @@ export function summarizeQualityAssuranceAllTimeIssues(
 	doneStatus: string,
 ): AllTimeLeaderboardEntry[] {
 	return summarizeCompletedIssues(
-		issues.map((issue) => ({
-			statusName: issue.statusName,
-			storyPoints: issue.storyPoints,
-			contributor: issue.tester,
-		})),
+		issues
+			.filter((issue) => issue.tester !== unassignedTesterName)
+			.map((issue) => ({
+				statusName: issue.statusName,
+				storyPoints: issue.storyPoints,
+				contributor: issue.tester,
+			})),
 		doneStatus,
 	);
 }

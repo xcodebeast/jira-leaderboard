@@ -5,22 +5,36 @@ import {
 	loadDevelopmentSetupSuggestion,
 	loadQualityAssuranceSetupSuggestion,
 } from "../browser/api-client";
-import type { AppConfiguration } from "../browser/configuration";
+import type {
+	AppConfiguration,
+	QualityAssuranceConfiguration,
+} from "../browser/configuration";
 import type { JiraBoard } from "../domain/jira";
 import type {
 	JiraSetupSuggestion,
 	QualityAssuranceSetupSuggestion,
 } from "../domain/setup";
-import ErrorBanner from "./ErrorBanner.svelte";
-import LoadingState from "./LoadingState.svelte";
 import LogoMark from "./LogoMark.svelte";
+import Alert from "./ui/Alert.svelte";
+import Button from "./ui/Button.svelte";
+import Card from "./ui/Card.svelte";
+import Checkbox from "./ui/Checkbox.svelte";
+import Field from "./ui/Field.svelte";
+import Input from "./ui/Input.svelte";
+import LoadingState from "./ui/LoadingState.svelte";
+import Select from "./ui/Select.svelte";
 
 interface Properties {
+	initialConfiguration?: AppConfiguration | null;
 	onComplete: (configuration: AppConfiguration) => void;
 	onDisconnect: () => void;
 }
 
-let { onComplete, onDisconnect }: Properties = $props();
+let {
+	initialConfiguration = null,
+	onComplete,
+	onDisconnect,
+}: Properties = $props();
 let boards = $state<JiraBoard[]>([]);
 let selectedBoardIdentifier = $state("");
 let developmentSuggestion = $state<JiraSetupSuggestion | null>(null);
@@ -76,6 +90,22 @@ function applySuggestion(loadedSuggestion: JiraSetupSuggestion): void {
 	defaultProjectKey = loadedSuggestion.defaultProjectKey;
 }
 
+function applyConfiguredDevelopmentValues(
+	configuration: AppConfiguration,
+): void {
+	storyPointsFieldIdentifier =
+		configuration.fieldMapping.storyPointsFieldIdentifier;
+	developerFieldIdentifier =
+		configuration.fieldMapping.developerFieldIdentifier;
+	bounceCountFieldIdentifier =
+		configuration.fieldMapping.bounceCountFieldIdentifier;
+	doneStatus = configuration.statusMapping.done;
+	qualityAssuranceStatus = configuration.statusMapping.qualityAssurance;
+	readyForQualityAssuranceStatus =
+		configuration.statusMapping.readyForQualityAssurance;
+	defaultProjectKey = configuration.defaultProjectKey;
+}
+
 function applyQualityAssuranceSuggestion(
 	loadedSuggestion: QualityAssuranceSetupSuggestion,
 ): void {
@@ -88,7 +118,20 @@ function applyQualityAssuranceSuggestion(
 		loadedSuggestion.statuses.readyForQualityAssurance;
 }
 
-async function loadSelectedDevelopmentBoard(): Promise<void> {
+function applyConfiguredQualityAssuranceValues(
+	configuration: QualityAssuranceConfiguration,
+): void {
+	qualityAssuranceStoryPointsFieldIdentifier =
+		configuration.fieldMapping.storyPointsFieldIdentifier;
+	testerFieldIdentifier = configuration.fieldMapping.testerFieldIdentifier;
+	qualityAssuranceDoneStatus = configuration.statusMapping.done;
+	qualityAssuranceReadyStatus =
+		configuration.statusMapping.readyForQualityAssurance;
+}
+
+async function loadSelectedDevelopmentBoard(
+	configurationToRestore: AppConfiguration | null = null,
+): Promise<void> {
 	const boardIdentifier = Number(selectedBoardIdentifier);
 	if (!boardIdentifier) {
 		return;
@@ -96,7 +139,16 @@ async function loadSelectedDevelopmentBoard(): Promise<void> {
 	isLoadingSuggestion = true;
 	errorMessage = "";
 	try {
-		applySuggestion(await loadDevelopmentSetupSuggestion(boardIdentifier));
+		const loadedSuggestion = await loadDevelopmentSetupSuggestion(
+			boardIdentifier,
+			configurationToRestore
+				? Object.values(configurationToRestore.fieldMapping)
+				: [],
+		);
+		applySuggestion(loadedSuggestion);
+		if (configurationToRestore?.boardIdentifier === boardIdentifier) {
+			applyConfiguredDevelopmentValues(configurationToRestore);
+		}
 		if (
 			includeQualityAssurance &&
 			Number(selectedQualityAssuranceBoardIdentifier) === boardIdentifier
@@ -132,8 +184,21 @@ async function loadAvailableBoards(): Promise<void> {
 		if (!initialBoard) {
 			throw new Error("This Jira account cannot access any Scrum boards.");
 		}
-		selectedBoardIdentifier = String(initialBoard.identifier);
-		await loadSelectedDevelopmentBoard();
+		const configuredBoard = initialConfiguration
+			? boards.find(
+					(board) => board.identifier === initialConfiguration?.boardIdentifier,
+				)
+			: undefined;
+		selectedBoardIdentifier = String(
+			(configuredBoard ?? initialBoard).identifier,
+		);
+		await loadSelectedDevelopmentBoard(
+			configuredBoard ? initialConfiguration : null,
+		);
+		if (configuredBoard && initialConfiguration?.qualityAssurance) {
+			includeQualityAssurance = true;
+			await loadQualityAssuranceBoards(initialConfiguration.qualityAssurance);
+		}
 	} catch (error) {
 		errorMessage =
 			error instanceof Error
@@ -144,7 +209,9 @@ async function loadAvailableBoards(): Promise<void> {
 	}
 }
 
-async function loadSelectedQualityAssuranceBoard(): Promise<void> {
+async function loadSelectedQualityAssuranceBoard(
+	configurationToRestore: QualityAssuranceConfiguration | null = null,
+): Promise<void> {
 	const boardIdentifier = Number(selectedQualityAssuranceBoardIdentifier);
 	if (!boardIdentifier) {
 		return;
@@ -152,9 +219,16 @@ async function loadSelectedQualityAssuranceBoard(): Promise<void> {
 	isLoadingQualityAssuranceSuggestion = true;
 	errorMessage = "";
 	try {
-		applyQualityAssuranceSuggestion(
-			await loadQualityAssuranceSetupSuggestion(boardIdentifier),
+		const loadedSuggestion = await loadQualityAssuranceSetupSuggestion(
+			boardIdentifier,
+			configurationToRestore
+				? Object.values(configurationToRestore.fieldMapping)
+				: [],
 		);
+		applyQualityAssuranceSuggestion(loadedSuggestion);
+		if (configurationToRestore?.boardIdentifier === boardIdentifier) {
+			applyConfiguredQualityAssuranceValues(configurationToRestore);
+		}
 	} catch (error) {
 		qualityAssuranceSuggestion = null;
 		errorMessage =
@@ -166,21 +240,34 @@ async function loadSelectedQualityAssuranceBoard(): Promise<void> {
 	}
 }
 
-async function loadQualityAssuranceBoards(): Promise<void> {
+async function loadQualityAssuranceBoards(
+	configurationToRestore: QualityAssuranceConfiguration | null = null,
+): Promise<void> {
 	isLoadingQualityAssuranceBoards = true;
 	errorMessage = "";
 	try {
 		qualityAssuranceBoards = await loadBoards("all");
-		const initialBoard = qualityAssuranceBoards.find(
-			(board) => board.identifier !== Number(selectedBoardIdentifier),
-		);
+		const configuredBoard = configurationToRestore
+			? qualityAssuranceBoards.find(
+					(board) =>
+						board.identifier === configurationToRestore.boardIdentifier &&
+						board.identifier !== Number(selectedBoardIdentifier),
+				)
+			: undefined;
+		const initialBoard =
+			configuredBoard ??
+			qualityAssuranceBoards.find(
+				(board) => board.identifier !== Number(selectedBoardIdentifier),
+			);
 		if (!initialBoard) {
 			throw new Error(
 				"This Jira account cannot access another board for quality assurance.",
 			);
 		}
 		selectedQualityAssuranceBoardIdentifier = String(initialBoard.identifier);
-		await loadSelectedQualityAssuranceBoard();
+		await loadSelectedQualityAssuranceBoard(
+			configuredBoard ? configurationToRestore : null,
+		);
 	} catch (error) {
 		errorMessage =
 			error instanceof Error
@@ -300,31 +387,26 @@ function handleSubmit(event: SubmitEvent): void {
 	});
 }
 
-onMount(loadAvailableBoards);
+onMount(() => {
+	void loadAvailableBoards();
+});
 </script>
 
 <main class="subtle-grid min-h-screen px-5 py-8 sm:px-8">
 	<div class="mx-auto max-w-4xl">
 		<header class="flex items-center justify-between gap-4">
 			<LogoMark />
-			<button
-				class="text-sm font-semibold text-muted hover:text-ice"
-				type="button"
-				onclick={onDisconnect}
-			>
-				Use another account
-			</button>
 		</header>
 
 		<div class="mt-12 grid gap-8 md:grid-cols-[13rem_1fr]">
 			<aside>
-				<p class="eyebrow">Step 2 of 2</p>
-				<h1 class="mt-3 text-3xl font-bold tracking-tight text-white">
+				<p class="eyebrow">Step 2 of 3</p>
+				<h1 class="display-title mt-3 text-4xl leading-none text-ice">
 					Map your board
 				</h1>
 				<p class="mt-4 text-sm leading-6 text-muted">
-					We suggest fields and statuses from Jira. Review them once, then the
-					browser remembers this setup.
+					We've suggested Jira fields and statuses. Review once; your browser
+					will remember.
 				</p>
 				<ol class="mt-8 space-y-4 text-sm">
 					<li class="flex gap-3 text-mint">
@@ -332,7 +414,7 @@ onMount(loadAvailableBoards);
 						><span class="font-semibold">Credentials verified</span>
 					</li>
 					<li class="flex gap-3 text-ice">
-						<span class="font-mono text-mint">02</span
+						<span class="font-mono text-brand">02</span
 						><span class="font-semibold">Board & mappings</span>
 					</li>
 					<li class="flex gap-3 text-muted">
@@ -341,40 +423,33 @@ onMount(loadAvailableBoards);
 				</ol>
 			</aside>
 
-			<section class="surface-card rounded-3xl p-5 sm:p-8">
+			<Card class="rounded-[1.3rem] p-5 sm:p-8" accent="brand">
 				{#if isLoadingBoards}
 					<LoadingState message="Finding your Scrum boards…" />
 				{:else}
 					<form class="space-y-6" onsubmit={handleSubmit}>
-						<label class="block">
-							<span class="mb-2 block text-sm font-semibold text-ice"
-								>Scrum board</span
-							>
-							<select
-								class="field-control"
+						<Field label="Scrum board">
+							<Select
 								bind:value={selectedBoardIdentifier}
-								onchange={loadSelectedDevelopmentBoard}
+								onchange={() => void loadSelectedDevelopmentBoard()}
 								disabled={isLoadingSuggestion}
 							>
 								{#each boards as board (board.identifier)}
-									<option value={board.identifier}>
+									<option value={String(board.identifier)}>
 										{board.name}
 										· #{board.identifier}
 									</option>
 								{/each}
-							</select>
-						</label>
+							</Select>
+						</Field>
 
 						{#if isLoadingSuggestion}
 							<LoadingState compact message="Reading board configuration…" />
 						{:else if developmentSuggestion}
 							{#if developmentSuggestion.availableProjects.length > 0}
-								<label class="block">
-									<span class="mb-2 block text-sm font-semibold text-ice"
-										>Period comparison project</span
-									>
-									<select
-										class="field-control max-w-md"
+								<Field label="Period comparison project">
+									<Select
+										class="max-w-md"
 										bind:value={defaultProjectKey}
 										required
 									>
@@ -385,131 +460,118 @@ onMount(loadAvailableBoards);
 												({project.key})
 											</option>
 										{/each}
-									</select>
+									</Select>
 									<span class="mt-2 block text-xs text-muted">
-										{developmentSuggestion.availableProjects.length === 1
+										{developmentSuggestion.availableProjects
+											.length === 1
 											? "Detected from this board's Jira project."
 											: "This board contains multiple projects. Choose the default for period comparisons."}
 									</span>
-								</label>
+								</Field>
 							{:else}
-								<label class="block">
-									<span class="mb-2 block text-sm font-semibold text-ice"
-										>Default project key</span
-									>
-									<input
-										class="field-control max-w-xs"
+								<Field label="Default project key">
+									<Input
+										class="max-w-xs"
 										bind:value={defaultProjectKey}
 										placeholder="DEMO"
 										required
-									>
+									/>
 									<span class="mt-2 block text-xs text-muted">
 										Jira could not infer a project from this board's filter.
 										Enter the default for period comparisons.
 									</span>
-								</label>
+								</Field>
 							{/if}
 
 							<details
 								class="rounded-2xl border border-line bg-canvas/35 p-4"
-								open={!storyPointsFieldIdentifier || !developerFieldIdentifier || !bounceCountFieldIdentifier}
+								open={!storyPointsFieldIdentifier ||
+									!developerFieldIdentifier ||
+									!bounceCountFieldIdentifier}
 							>
 								<summary class="cursor-pointer text-sm font-semibold text-ice">
 									Review advanced mappings
 								</summary>
 								<div class="mt-5 grid gap-5 sm:grid-cols-2">
-									<label class="block sm:col-span-2">
-										<span
-											class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-											>Story points</span
-										>
-										<select
-											class="field-control"
-											bind:value={storyPointsFieldIdentifier}
-											required
-										>
+									<Field label="Story points" compact class="sm:col-span-2">
+										<Select bind:value={storyPointsFieldIdentifier} required>
 											<option value="" disabled>
 												Select a Story Points field
 											</option>
 											{#each developmentSuggestion.availableFields as field (field.identifier)}
 												<option value={field.identifier}>{field.name}</option>
 											{/each}
-										</select>
-									</label>
-									<label class="block">
-										<span
-											class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-											>Developer</span
-										>
-										<select
-											class="field-control"
-											bind:value={developerFieldIdentifier}
-											required
-										>
+										</Select>
+									</Field>
+									<Field label="Developer" compact>
+										<Select bind:value={developerFieldIdentifier} required>
 											<option value="" disabled>
 												Select a Developer field
 											</option>
 											{#each developmentSuggestion.availableFields as field (field.identifier)}
 												<option value={field.identifier}>{field.name}</option>
 											{/each}
-										</select>
-									</label>
-									<label class="block">
-										<span
-											class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-											>Bounce count</span
-										>
-										<select
-											class="field-control"
-											bind:value={bounceCountFieldIdentifier}
-											required
-										>
+										</Select>
+									</Field>
+									<Field label="Bounce count" compact>
+										<Select bind:value={bounceCountFieldIdentifier} required>
 											<option value="" disabled>
 												Select a Bounce Count field
 											</option>
 											{#each developmentSuggestion.availableFields as field (field.identifier)}
 												<option value={field.identifier}>{field.name}</option>
 											{/each}
-										</select>
-									</label>
+										</Select>
+									</Field>
 									{#each [["Done", doneStatus], ["QA", qualityAssuranceStatus], ["Ready for QA", readyForQualityAssuranceStatus]] as statusEntry (statusEntry[0])}
-										<label class="block">
-											<span
-												class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-												>{statusEntry[0]}</span
-											>
-											<select
-												class="field-control"
+										<Field label={statusEntry[0]} compact>
+											<Select
 												value={statusEntry[1]}
 												onchange={(event) => {
-												const selectedValue = event.currentTarget.value;
-												if (statusEntry[0] === "Done") doneStatus = selectedValue;
-												else if (statusEntry[0] === "QA") qualityAssuranceStatus = selectedValue;
-												else readyForQualityAssuranceStatus = selectedValue;
-											}}
+													const selectedValue =
+														event.currentTarget
+															.value;
+													if (
+														statusEntry[0] ===
+														"Done"
+													)
+														doneStatus =
+															selectedValue;
+													else if (
+														statusEntry[0] === "QA"
+													)
+														qualityAssuranceStatus =
+															selectedValue;
+													else
+														readyForQualityAssuranceStatus =
+															selectedValue;
+												}}
 											>
 												{#each developmentSuggestion.availableStatuses as status (status.identifier)}
 													<option value={status.name}>{status.name}</option>
 												{/each}
-											</select>
-										</label>
+											</Select>
+										</Field>
 									{/each}
 								</div>
 							</details>
 						{/if}
 
 						<section class="rounded-2xl border border-line bg-canvas/35 p-4">
-							<label class="flex cursor-pointer items-start gap-3">
-								<input
-									class="mt-1 size-4 accent-mint"
-									type="checkbox"
+							<label
+								class="flex cursor-pointer items-start gap-3"
+								for="include-quality-assurance"
+							>
+								<Checkbox
+									id="include-quality-assurance"
+									class="mt-1"
 									checked={includeQualityAssurance}
 									onchange={handleQualityAssuranceToggle}
 									disabled={isSetupLoading}
-								>
+								/>
 								<span>
 									<span class="block text-sm font-semibold text-ice"
-										>Add a QA leaderboard</span
+										>Add QA performance</span
 									>
 									<span class="mt-1 block text-xs leading-5 text-muted">
 										Use another board’s scope and the same development sprint.
@@ -522,25 +584,21 @@ onMount(loadAvailableBoards);
 									{#if isLoadingQualityAssuranceBoards}
 										<LoadingState compact message="Finding QA boards…" />
 									{:else if availableQualityAssuranceBoards.length > 0}
-										<label class="block">
-											<span
-												class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-												>QA board</span
-											>
-											<select
-												class="field-control"
+										<Field label="QA board" compact>
+											<Select
 												bind:value={selectedQualityAssuranceBoardIdentifier}
-												onchange={loadSelectedQualityAssuranceBoard}
+												onchange={() =>
+												void loadSelectedQualityAssuranceBoard()}
 												disabled={isLoadingQualityAssuranceSuggestion}
 											>
 												{#each availableQualityAssuranceBoards as board (board.identifier)}
-													<option value={board.identifier}>
+													<option value={String(board.identifier)}>
 														{board.name}
 														· {board.type} · #{board.identifier}
 													</option>
 												{/each}
-											</select>
-										</label>
+											</Select>
+										</Field>
 
 										{#if isLoadingQualityAssuranceSuggestion}
 											<LoadingState
@@ -549,13 +607,8 @@ onMount(loadAvailableBoards);
 											/>
 										{:else if qualityAssuranceSuggestion}
 											<div class="mt-5 grid gap-5 sm:grid-cols-2">
-												<label class="block">
-													<span
-														class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-														>Story points</span
-													>
-													<select
-														class="field-control"
+												<Field label="Story points" compact>
+													<Select
 														bind:value={qualityAssuranceStoryPointsFieldIdentifier}
 														required
 													>
@@ -567,54 +620,32 @@ onMount(loadAvailableBoards);
 																{field.name}
 															</option>
 														{/each}
-													</select>
-												</label>
-												<label class="block">
-													<span
-														class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-														>Tester</span
-													>
-													<select
-														class="field-control"
-														bind:value={testerFieldIdentifier}
-														required
-													>
+													</Select>
+												</Field>
+												<Field label="Tester" compact>
+													<Select bind:value={testerFieldIdentifier} required>
 														<option value="" disabled>Select Tester</option>
 														{#each qualityAssuranceSuggestion.availableFields as field (field.identifier)}
 															<option value={field.identifier}>
 																{field.name}
 															</option>
 														{/each}
-													</select>
-												</label>
-												<label class="block">
-													<span
-														class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-														>Done</span
-													>
-													<select
-														class="field-control"
-														bind:value={qualityAssuranceDoneStatus}
-													>
+													</Select>
+												</Field>
+												<Field label="Done" compact>
+													<Select bind:value={qualityAssuranceDoneStatus}>
 														{#each qualityAssuranceSuggestion.availableStatuses as status (status.identifier)}
 															<option value={status.name}>{status.name}</option>
 														{/each}
-													</select>
-												</label>
-												<label class="block">
-													<span
-														class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-														>Ready for QA</span
-													>
-													<select
-														class="field-control"
-														bind:value={qualityAssuranceReadyStatus}
-													>
+													</Select>
+												</Field>
+												<Field label="Ready for QA" compact>
+													<Select bind:value={qualityAssuranceReadyStatus}>
 														{#each qualityAssuranceSuggestion.availableStatuses as status (status.identifier)}
 															<option value={status.name}>{status.name}</option>
 														{/each}
-													</select>
-												</label>
+													</Select>
+												</Field>
 											</div>
 										{/if}
 									{/if}
@@ -623,7 +654,7 @@ onMount(loadAvailableBoards);
 						</section>
 
 						{#if errorMessage}
-							<ErrorBanner
+							<Alert
 								message={errorMessage}
 								onRetry={hasRetryableSetupError
 									? retrySetupFailure
@@ -631,16 +662,18 @@ onMount(loadAvailableBoards);
 							/>
 						{/if}
 
-						<button
-							class="primary-button w-full"
+						<Button
+							class="w-full"
+							variant="primary"
+							size="large"
 							type="submit"
 							disabled={!developmentSuggestion || isSetupLoading}
 						>
 							Save setup and open dashboard <span aria-hidden="true">→</span>
-						</button>
+						</Button>
 					</form>
 				{/if}
-			</section>
+			</Card>
 		</div>
 	</div>
 </main>

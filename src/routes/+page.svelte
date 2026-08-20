@@ -1,5 +1,5 @@
 <script lang="ts">
-import { onMount } from "svelte";
+import { onMount, tick } from "svelte";
 import {
 	type ConnectedSession,
 	disconnectJira,
@@ -14,29 +14,41 @@ import {
 	saveRememberedJiraSiteUrl,
 } from "$lib/browser/configuration";
 import AllTimeDashboard from "$lib/components/AllTimeDashboard.svelte";
-import AppShell from "$lib/components/AppShell.svelte";
+import AppShell, {
+	type ApplicationView,
+} from "$lib/components/AppShell.svelte";
 import BoardSetup from "$lib/components/BoardSetup.svelte";
-import ErrorBanner from "$lib/components/ErrorBanner.svelte";
-import LoadingState from "$lib/components/LoadingState.svelte";
 import LogoMark from "$lib/components/LogoMark.svelte";
 import Onboarding from "$lib/components/Onboarding.svelte";
 import PeriodComparison from "$lib/components/PeriodComparison.svelte";
-import QualityAssuranceDashboard from "$lib/components/QualityAssuranceDashboard.svelte";
 import SettingsPanel from "$lib/components/SettingsPanel.svelte";
-import SprintDashboard from "$lib/components/SprintDashboard.svelte";
-
-type ApplicationView =
-	| "sprint"
-	| "qualityAssurance"
-	| "allTime"
-	| "period"
-	| "settings";
+import SprintPerformanceDashboard from "$lib/components/SprintPerformanceDashboard.svelte";
+import Alert from "$lib/components/ui/Alert.svelte";
+import Card from "$lib/components/ui/Card.svelte";
+import LoadingState from "$lib/components/ui/LoadingState.svelte";
 
 let session = $state<SessionStatus>({ connected: false });
 let configuration = $state<AppConfiguration | null>(null);
+let setupConfiguration = $state<AppConfiguration | null>(null);
 let activeView = $state<ApplicationView>("sprint");
+let visitedViews = $state<Record<ApplicationView, boolean>>({
+	sprint: true,
+	allTime: false,
+	period: false,
+	settings: false,
+});
 let isInitializing = $state(true);
 let initializationError = $state("");
+let pageTitle = $derived(
+	(
+		{
+			sprint: "Sprint performance",
+			allTime: "Leaderboard",
+			period: "Compare periods",
+			settings: "Settings",
+		} satisfies Record<ApplicationView, string>
+	)[activeView],
+);
 
 async function initializeApplication(): Promise<void> {
 	isInitializing = true;
@@ -63,12 +75,43 @@ function saveBrowserConfiguration(configurationToSave: AppConfiguration): void {
 	configuration = configurationToSave;
 }
 
+function resetVisitedViews(view: ApplicationView): void {
+	visitedViews = {
+		sprint: view === "sprint",
+		allTime: view === "allTime",
+		period: view === "period",
+		settings: view === "settings",
+	};
+}
+
+async function navigateToView(view: ApplicationView): Promise<void> {
+	visitedViews[view] = true;
+	activeView = view;
+	await tick();
+	if (activeView !== view) {
+		return;
+	}
+	window.scrollTo({ top: 0 });
+
+	const viewHeading = document.querySelector<HTMLElement>(
+		`[data-application-view="${view}"] h1`,
+	);
+	if (viewHeading) {
+		viewHeading.tabIndex = -1;
+		viewHeading.focus({ preventScroll: true });
+	}
+}
+
 function handleSetupComplete(configurationToSave: AppConfiguration): void {
 	saveBrowserConfiguration(configurationToSave);
+	setupConfiguration = null;
 	activeView = "sprint";
+	resetVisitedViews("sprint");
 }
 
 function changeSetup(): void {
+	setupConfiguration = configuration;
+	resetVisitedViews(activeView);
 	configuration = null;
 }
 
@@ -77,6 +120,7 @@ async function reconnectJira(): Promise<void> {
 		saveRememberedJiraSiteUrl(session.jiraSiteUrl);
 	}
 	await disconnectJira();
+	resetVisitedViews(activeView);
 	session = { connected: false };
 }
 
@@ -84,15 +128,19 @@ async function eraseLocalData(): Promise<void> {
 	await disconnectJira().catch(() => undefined);
 	clearConfiguration();
 	configuration = null;
+	setupConfiguration = null;
 	session = { connected: false };
 	activeView = "sprint";
+	resetVisitedViews("sprint");
 }
 
-onMount(initializeApplication);
+onMount(() => {
+	void initializeApplication();
+});
 </script>
 
 <svelte:head>
-	<title>Jira Leaderboard · Sprint performance</title>
+	<title>Jira Leaderboard · {pageTitle}</title>
 	<meta
 		name="description"
 		content="A stateless sprint and period performance dashboard for Jira teams."
@@ -108,48 +156,56 @@ onMount(initializeApplication);
 	</main>
 {:else if initializationError}
 	<main class="grid min-h-screen place-items-center px-5">
-		<div class="surface-card w-full max-w-lg rounded-2xl p-6">
+		<Card class="w-full max-w-lg rounded-[1.2rem] p-6" accent="danger">
 			<LogoMark />
 			<div class="mt-6">
-				<ErrorBanner
-					message={initializationError}
-					onRetry={initializeApplication}
-				/>
+				<Alert message={initializationError} onRetry={initializeApplication} />
 			</div>
-		</div>
+		</Card>
 	</main>
 {:else if !session.connected}
 	<Onboarding onConnected={handleConnected} />
 {:else if !configuration}
-	<BoardSetup onComplete={handleSetupComplete} onDisconnect={reconnectJira} />
+	<BoardSetup
+		initialConfiguration={setupConfiguration}
+		onComplete={handleSetupComplete}
+		onDisconnect={reconnectJira}
+	/>
 {:else}
-	<AppShell
-		{activeView}
-		{configuration}
-		{session}
-		onNavigate={(view) => (activeView = view)}
-	>
-		{#if activeView === "sprint"}
-			<SprintDashboard {configuration} />
-		{:else if activeView === "qualityAssurance" && configuration.qualityAssurance}
-			<QualityAssuranceDashboard
-				developmentBoardIdentifier={configuration.boardIdentifier}
-				developmentBoardName={configuration.boardName}
-				configuration={configuration.qualityAssurance}
-			/>
-		{:else if activeView === "allTime"}
-			<AllTimeDashboard {configuration} />
-		{:else if activeView === "period"}
-			<PeriodComparison {configuration} />
-		{:else}
-			<SettingsPanel
-				{configuration}
-				{session}
-				onSaveConfiguration={saveBrowserConfiguration}
-				onChangeSetup={changeSetup}
-				onReconnect={reconnectJira}
-				onErase={eraseLocalData}
-			/>
+	<AppShell {activeView} {configuration} {session} onNavigate={navigateToView}>
+		{#if visitedViews.sprint}
+			<div data-application-view="sprint" hidden={activeView !== "sprint"}>
+				<SprintPerformanceDashboard
+					{configuration}
+					jiraSiteUrl={session.jiraSiteUrl}
+					onOpenSettings={() => void navigateToView("settings")}
+				/>
+			</div>
+		{/if}
+		{#if visitedViews.allTime}
+			<div data-application-view="allTime" hidden={activeView !== "allTime"}>
+				<AllTimeDashboard
+					{configuration}
+					onOpenSettings={() => void navigateToView("settings")}
+				/>
+			</div>
+		{/if}
+		{#if visitedViews.period}
+			<div data-application-view="period" hidden={activeView !== "period"}>
+				<PeriodComparison {configuration} />
+			</div>
+		{/if}
+		{#if visitedViews.settings}
+			<div data-application-view="settings" hidden={activeView !== "settings"}>
+				<SettingsPanel
+					{configuration}
+					{session}
+					onSaveConfiguration={saveBrowserConfiguration}
+					onChangeSetup={changeSetup}
+					onReconnect={reconnectJira}
+					onErase={eraseLocalData}
+				/>
+			</div>
 		{/if}
 	</AppShell>
 {/if}

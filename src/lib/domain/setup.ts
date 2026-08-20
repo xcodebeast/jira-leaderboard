@@ -88,6 +88,42 @@ function selectStatusName(
 	);
 }
 
+function normalizedDisplayName(name: string): string {
+	return name.trim().toLocaleLowerCase();
+}
+
+function uniqueFieldsByName(
+	fields: JiraField[],
+	preferredIdentifiers: string[],
+): JiraField[] {
+	const preferredIdentifierRanks = new Map(
+		preferredIdentifiers.map((identifier, index) => [identifier, index]),
+	);
+	const fieldsByName = new Map<string, JiraField>();
+
+	for (const field of fields) {
+		const normalizedName = normalizedDisplayName(field.name);
+		const existingField = fieldsByName.get(normalizedName);
+		if (!existingField) {
+			fieldsByName.set(normalizedName, field);
+			continue;
+		}
+
+		const existingRank = preferredIdentifierRanks.get(existingField.identifier);
+		const candidateRank = preferredIdentifierRanks.get(field.identifier);
+		if (
+			candidateRank !== undefined &&
+			(existingRank === undefined || candidateRank < existingRank)
+		) {
+			fieldsByName.set(normalizedName, field);
+		}
+	}
+
+	return [...fieldsByName.values()].sort((leftField, rightField) =>
+		leftField.name.localeCompare(rightField.name),
+	);
+}
+
 function uniqueStatusesByName(statuses: JiraStatus[]): JiraStatus[] {
 	const statusesByName = new Map<string, JiraStatus>();
 	for (const status of statuses) {
@@ -111,6 +147,7 @@ export function buildJiraSetupSuggestion(
 	allFields: JiraField[],
 	allStatuses: JiraStatus[],
 	boardProjects: JiraProject[] = [],
+	preferredFieldIdentifiers: string[] = [],
 ): JiraSetupSuggestion {
 	const boardStatusIdentifiers = new Set(
 		boardConfiguration.boardStatusIdentifiers,
@@ -120,33 +157,32 @@ export function buildJiraSetupSuggestion(
 	);
 	const suggestedStatuses =
 		boardStatuses.length > 0 ? boardStatuses : allStatuses;
-	const sortedFields = [...allFields].sort((leftField, rightField) =>
-		leftField.name.localeCompare(rightField.name),
-	);
 	const sortedStatuses = uniqueStatusesByName(allStatuses);
 	const sortedProjects = [...boardProjects].sort((leftProject, rightProject) =>
 		leftProject.name.localeCompare(rightProject.name),
 	);
 
+	const fields = {
+		storyPointsFieldIdentifier: selectFieldIdentifier(
+			boardConfiguration.estimationFieldIdentifier,
+			["Story Points", "Story point estimate"],
+			allFields,
+		),
+		developerFieldIdentifier: selectFieldIdentifier(
+			null,
+			["Developer"],
+			allFields,
+		),
+		bounceCountFieldIdentifier: selectFieldIdentifier(
+			null,
+			["Bounce Count"],
+			allFields,
+		),
+	};
+
 	return {
 		board,
-		fields: {
-			storyPointsFieldIdentifier: selectFieldIdentifier(
-				boardConfiguration.estimationFieldIdentifier,
-				["Story Points", "Story point estimate"],
-				allFields,
-			),
-			developerFieldIdentifier: selectFieldIdentifier(
-				null,
-				["Developer"],
-				allFields,
-			),
-			bounceCountFieldIdentifier: selectFieldIdentifier(
-				null,
-				["Bounce Count"],
-				allFields,
-			),
-		},
+		fields,
 		statuses: {
 			done: selectStatusName(
 				defaultStatusMapping.done,
@@ -165,7 +201,10 @@ export function buildJiraSetupSuggestion(
 			),
 		},
 		defaultProjectKey: sortedProjects.length === 1 ? sortedProjects[0].key : "",
-		availableFields: sortedFields,
+		availableFields: uniqueFieldsByName(
+			allFields,
+			[...preferredFieldIdentifiers, ...Object.values(fields)].filter(Boolean),
+		),
 		availableProjects: sortedProjects,
 		availableStatuses: sortedStatuses,
 	};
@@ -176,6 +215,7 @@ export function buildQualityAssuranceSetupSuggestion(
 	boardConfiguration: JiraBoardConfiguration,
 	allFields: JiraField[],
 	allStatuses: JiraStatus[],
+	preferredFieldIdentifiers: string[] = [],
 ): QualityAssuranceSetupSuggestion {
 	const boardStatusIdentifiers = new Set(
 		boardConfiguration.boardStatusIdentifiers,
@@ -186,16 +226,18 @@ export function buildQualityAssuranceSetupSuggestion(
 	const suggestedStatuses =
 		boardStatuses.length > 0 ? boardStatuses : allStatuses;
 
+	const fields = {
+		storyPointsFieldIdentifier: selectFieldIdentifier(
+			boardConfiguration.estimationFieldIdentifier,
+			["Story Points", "Story point estimate"],
+			allFields,
+		),
+		testerFieldIdentifier: selectFieldIdentifier(null, ["Tester"], allFields),
+	};
+
 	return {
 		board,
-		fields: {
-			storyPointsFieldIdentifier: selectFieldIdentifier(
-				boardConfiguration.estimationFieldIdentifier,
-				["Story Points", "Story point estimate"],
-				allFields,
-			),
-			testerFieldIdentifier: selectFieldIdentifier(null, ["Tester"], allFields),
-		},
+		fields,
 		statuses: {
 			done: selectStatusName(
 				defaultQualityAssuranceStatusMapping.done,
@@ -208,8 +250,9 @@ export function buildQualityAssuranceSetupSuggestion(
 				suggestedStatuses,
 			),
 		},
-		availableFields: [...allFields].sort((leftField, rightField) =>
-			leftField.name.localeCompare(rightField.name),
+		availableFields: uniqueFieldsByName(
+			allFields,
+			[...preferredFieldIdentifiers, ...Object.values(fields)].filter(Boolean),
 		),
 		availableStatuses: uniqueStatusesByName(allStatuses),
 	};

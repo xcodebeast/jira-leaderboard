@@ -23,6 +23,11 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 		if (setupMode !== "development" && setupMode !== "qualityAssurance") {
 			throw new ClientInputError("Select a valid board setup mode.");
 		}
+		const preferredFieldIdentifiers = url.searchParams
+			.getAll("preferredFieldIdentifier")
+			.map((identifier) => identifier.trim())
+			.filter(Boolean)
+			.slice(0, 3);
 		const client = new JiraClient(requireCredentialSession(cookies));
 		const boardProjectsPromise =
 			setupMode === "development"
@@ -50,6 +55,7 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 							boardConfiguration,
 							fields,
 							statuses,
+							preferredFieldIdentifiers,
 						)
 					: buildJiraSetupSuggestion(
 							board,
@@ -57,6 +63,7 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 							fields,
 							statuses,
 							boardProjects,
+							preferredFieldIdentifiers,
 						),
 		});
 	} catch (error) {

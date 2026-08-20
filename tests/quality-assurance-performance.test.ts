@@ -82,4 +82,18 @@ describe("quality assurance performance", () => {
 			"Casey",
 		]);
 	});
+
+	test("keeps unassigned tester work visible in sprint performance", () => {
+		const summaries = summarizeQualityAssuranceSprintIssues(
+			[createQualityAssuranceIssue({ storyPoints: 3 })],
+			{ done: "Done", readyForQualityAssurance: "Ready for QA" },
+		);
+
+		expect(summaries).toHaveLength(1);
+		expect(summaries[0]).toMatchObject({
+			tester: "Unassigned Tester",
+			doneStoryPoints: 3,
+			doneTicketCount: 1,
+		});
+	});
 });

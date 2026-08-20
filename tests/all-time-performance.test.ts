@@ -86,6 +86,44 @@ describe("all-time performance", () => {
 		]);
 	});
 
+	test("excludes unassigned contributors from both leaderboards and totals", () => {
+		const developerEntries = summarizeDeveloperAllTimeIssues(
+			[
+				createDeveloperIssue({
+					storyPoints: 100,
+					developer: "Unassigned Developer",
+				}),
+				createDeveloperIssue({ storyPoints: 8, developer: "Alex" }),
+			],
+			"Done",
+		);
+		const qualityAssuranceEntries = summarizeQualityAssuranceAllTimeIssues(
+			[
+				createQualityAssuranceIssue({
+					storyPoints: 100,
+					tester: "Unassigned Tester",
+				}),
+				createQualityAssuranceIssue({ storyPoints: 5, tester: "Taylor" }),
+			],
+			"Done",
+		);
+
+		expect(developerEntries).toEqual([
+			{ contributor: "Alex", completedPoints: 8, completedTickets: 1 },
+		]);
+		expect(totalAllTimeLeaderboard(developerEntries)).toEqual({
+			completedPoints: 8,
+			completedTickets: 1,
+		});
+		expect(qualityAssuranceEntries).toEqual([
+			{ contributor: "Taylor", completedPoints: 5, completedTickets: 1 },
+		]);
+		expect(totalAllTimeLeaderboard(qualityAssuranceEntries)).toEqual({
+			completedPoints: 5,
+			completedTickets: 1,
+		});
+	});
+
 	test("scopes the Done query to a selected calendar year", () => {
 		expect(buildDoneIssuesQuery("Done", 2026)).toBe(
 			'status = "Done" AND resolved >= "2026-01-01" AND resolved < "2027-01-01"',

@@ -1,5 +1,9 @@
 <script lang="ts">
 import { onMount } from "svelte";
+import Badge from "./ui/Badge.svelte";
+import Button from "./ui/Button.svelte";
+import Icon from "./ui/Icon.svelte";
+import LinkButton from "./ui/LinkButton.svelte";
 
 interface Properties {
 	onClose: () => void;
@@ -58,14 +62,14 @@ onMount(() => tutorialDialog.showModal());
 							: "Create a classic token"}
 				</h2>
 			</div>
-			<button
-				class="grid size-9 shrink-0 place-items-center rounded-lg border border-line text-lg text-muted hover:border-ice/30 hover:text-white"
-				type="button"
+			<Button
+				variant="ghost"
+				size="icon"
 				onclick={closeTutorial}
 				aria-label="Close token instructions"
 			>
-				×
-			</button>
+				<Icon name="close" size={19} />
+			</Button>
 		</header>
 
 		{#if selectedTokenType === null}
@@ -80,9 +84,8 @@ onMount(() => tutorialDialog.showModal());
 					onclick={() => (selectedTokenType = "scoped")}
 				>
 					<span class="block text-base font-bold text-white">Scoped token</span>
-					<span
-						class="mt-2 inline-block rounded-full bg-mint/12 px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-mint"
-						>Recommended</span
+					<span class="mt-2 block"
+						><Badge tone="success">Recommended</Badge></span
 					>
 					<span class="mt-3 block text-xs leading-5 text-muted">
 						Choose explicit read-only permissions. The app finds the Jira Cloud
@@ -104,13 +107,14 @@ onMount(() => tutorialDialog.showModal());
 				</button>
 			</div>
 		{:else}
-			<button
-				class="mt-5 text-xs font-semibold text-mint hover:underline"
-				type="button"
+			<Button
+				class="mt-5"
+				variant="ghost"
+				size="small"
 				onclick={() => (selectedTokenType = null)}
 			>
 				← Choose another token type
-			</button>
+			</Button>
 
 			{#if selectedTokenType === "scoped"}
 				<ol
@@ -158,14 +162,16 @@ onMount(() => tutorialDialog.showModal());
 				</p>
 			{/if}
 
-			<a
-				class="primary-button mt-6 w-full justify-center"
+			<LinkButton
+				class="mt-6 w-full"
+				variant="primary"
+				size="large"
 				href={atlassianTokenUrl}
 				target="_blank"
 				rel="noreferrer"
 			>
 				Open Atlassian token settings <span aria-hidden="true">↗</span>
-			</a>
+			</LinkButton>
 		{/if}
 	</div>
 </dialog>

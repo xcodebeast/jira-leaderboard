@@ -1,95 +1,104 @@
 <script lang="ts">
-	import { onMount } from "svelte";
-	import { type ConnectedSession, connectJira } from "../browser/api-client";
-	import {
-		loadRememberedJiraSiteUrl,
-		saveRememberedJiraSiteUrl,
-	} from "../browser/configuration";
-	import ErrorBanner from "./ErrorBanner.svelte";
-	import GitHubIcon from "./icons/GitHubIcon.svelte";
-	import LogoMark from "./LogoMark.svelte";
-	import TokenCreationModal from "./TokenCreationModal.svelte";
+import { onMount } from "svelte";
+import { type ConnectedSession, connectJira } from "../browser/api-client";
+import {
+	loadRememberedJiraSiteUrl,
+	saveRememberedJiraSiteUrl,
+} from "../browser/configuration";
+import GitHubIcon from "./icons/GitHubIcon.svelte";
+import LogoMark from "./LogoMark.svelte";
+import TokenCreationModal from "./TokenCreationModal.svelte";
+import Alert from "./ui/Alert.svelte";
+import Button from "./ui/Button.svelte";
+import Card from "./ui/Card.svelte";
+import Field from "./ui/Field.svelte";
+import Icon from "./ui/Icon.svelte";
+import Input from "./ui/Input.svelte";
 
-	interface Properties {
-		onConnected: (session: ConnectedSession) => void;
+interface Properties {
+	onConnected: (session: ConnectedSession) => void;
+}
+
+let { onConnected }: Properties = $props();
+let jiraSiteUrl = $state("");
+let emailAddress = $state("");
+let apiToken = $state("");
+let showsToken = $state(false);
+let isConnecting = $state(false);
+let errorMessage = $state("");
+let showsTokenTutorial = $state(false);
+
+async function handleSubmit(event: SubmitEvent): Promise<void> {
+	event.preventDefault();
+	isConnecting = true;
+	errorMessage = "";
+	try {
+		const connectedSession = await connectJira({
+			jiraSiteUrl,
+			emailAddress,
+			apiToken,
+		});
+		saveRememberedJiraSiteUrl(connectedSession.jiraSiteUrl);
+		onConnected(connectedSession);
+	} catch (error) {
+		errorMessage =
+			error instanceof Error ? error.message : "Jira could not be connected.";
+	} finally {
+		isConnecting = false;
 	}
+}
 
-	let { onConnected }: Properties = $props();
-	let jiraSiteUrl = $state("");
-	let emailAddress = $state("");
-	let apiToken = $state("");
-	let showsToken = $state(false);
-	let isConnecting = $state(false);
-	let errorMessage = $state("");
-	let showsTokenTutorial = $state(false);
-
-	async function handleSubmit(event: SubmitEvent): Promise<void> {
-		event.preventDefault();
-		isConnecting = true;
-		errorMessage = "";
-		try {
-			const connectedSession = await connectJira({
-				jiraSiteUrl,
-				emailAddress,
-				apiToken,
-			});
-			saveRememberedJiraSiteUrl(connectedSession.jiraSiteUrl);
-			onConnected(connectedSession);
-		} catch (error) {
-			errorMessage =
-				error instanceof Error
-					? error.message
-					: "Jira could not be connected.";
-		} finally {
-			isConnecting = false;
-		}
+onMount(() => {
+	if (!jiraSiteUrl) {
+		jiraSiteUrl = loadRememberedJiraSiteUrl();
 	}
-
-	onMount(() => {
-		if (!jiraSiteUrl) {
-			jiraSiteUrl = loadRememberedJiraSiteUrl();
-		}
-	});
+});
 </script>
 
 <main
-	class="subtle-grid min-h-screen px-5 py-8 sm:px-8 lg:grid lg:place-items-center lg:py-12"
+	class="subtle-grid min-h-screen px-5 py-7 sm:px-8 lg:grid lg:place-items-center lg:py-12"
 >
 	<div
-		class="mx-auto grid w-full max-w-6xl gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center"
+		class="mx-auto grid w-full max-w-6xl gap-1 lg:grid-cols-[1.08fr_0.94fr] lg:items-center xl:gap-16"
 	>
-		<section class="max-w-xl py-4 lg:py-12">
+		<section class="max-w-xl py-4 lg:py-10">
 			<LogoMark />
 			<h1
-				class="mt-4 text-4xl font-bold leading-[1.04] tracking-[-0.05em] text-white sm:text-6xl"
+				class="display-title mt-5 text-5xl leading-[0.98] text-ice sm:text-6xl"
 			>
-				Turn Jira activity into a clear team signal.
+				Make sprints fun again.
 			</h1>
 			<p class="mt-6 max-w-lg text-base leading-7 text-muted sm:text-lg">
-				See completed work, projected points, bounces, and
-				period-over-period movement without exporting a spreadsheet.
+				Turn Jira work into a shared team score: celebrate delivery, surface
+				quality signals, and build momentum sprint after sprint.
 			</p>
 
-			<div class="mt-10 grid gap-4 sm:grid-cols-3">
-				<p
-					class="border-l border-mint/30 pl-4 mt-2 text-md font-semibold text-ice"
-				>
-					Open source
-				</p>
-				<p
-					class="border-l border-violet/30 pl-4 mt-2 text-md font-semibold text-ice"
-				>
-					No data storage
-				</p>
-				<p
-					class="border-l border-coral/30 pl-4 mt-2 text-md font-semibold text-ice"
-				>
-					One-time setup
-				</p>
+			<div class="mt-7 grid gap-3 sm:grid-cols-3">
+				<div class="flex items-center gap-2.5 text-sm font-bold text-ice">
+					<span
+						class="grid size-8 place-items-center rounded-lg bg-brand/10 text-brand"
+						><Icon name="trophy" size={16} /></span
+					>
+					Celebrate wins
+				</div>
+				<div class="flex items-center gap-2.5 text-sm font-bold text-ice">
+					<span
+						class="grid size-8 place-items-center rounded-lg bg-sky/10 text-sky"
+						><Icon name="spark" size={16} /></span
+					>
+					Spot momentum
+				</div>
+				<div class="flex items-center gap-2.5 text-sm font-bold text-ice">
+					<span
+						class="grid size-8 place-items-center rounded-lg bg-mint/10 text-mint"
+						><Icon name="shield" size={16} /></span
+					>
+					Local only
+				</div>
 			</div>
 
 			<a
-				class="mt-8 inline-flex items-center gap-2 rounded-xl border border-line/70 bg-panel/60 px-4 py-2.5 text-sm font-semibold text-ice transition-colors hover:border-mint/50 hover:text-mint"
+				class="mt-12 inline-flex items-center gap-2 text-sm font-bold text-muted transition-colors hover:text-brand"
 				href="https://github.com/xcodebeast/jira-leaderboard"
 				target="_blank"
 				rel="noreferrer"
@@ -99,20 +108,14 @@
 			</a>
 		</section>
 
-		<section class="surface-card rounded-3xl p-5 sm:p-8">
-			<div class="flex items-start justify-between gap-4">
-				<h2 class="mt-2 text-2xl font-bold tracking-tight text-white">
-					Connect workspace
-				</h2>
-			</div>
+		<Card class="rounded-[1.3rem] sm:p-8" accent="brand">
+			<h2 class="mt-3 text-2xl font-extrabold tracking-tight text-ice">
+				Connect workspace
+			</h2>
 
 			<form class="mt-7 space-y-5" onsubmit={handleSubmit}>
-				<label class="block">
-					<span class="mb-2 block text-sm font-semibold text-ice"
-						>Jira site</span
-					>
-					<input
-						class="field-control"
+				<Field label="Jira site" required>
+					<Input
 						name="jiraSiteUrl"
 						type="url"
 						autocomplete="url"
@@ -120,13 +123,9 @@
 						bind:value={jiraSiteUrl}
 						required
 					/>
-				</label>
-				<label class="block">
-					<span class="mb-2 block text-sm font-semibold text-ice"
-						>Jira email</span
-					>
-					<input
-						class="field-control"
+				</Field>
+				<Field label="Jira email" required>
+					<Input
 						name="emailAddress"
 						type="email"
 						autocomplete="username"
@@ -134,24 +133,25 @@
 						bind:value={emailAddress}
 						required
 					/>
-				</label>
-				<div class="block">
-					<div
-						class="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-ice"
-					>
-						<label for="jira-api-token">API token</label>
+				</Field>
+				<div>
+					<div class="mb-2 flex items-center justify-between gap-3">
+						<label class="text-sm font-bold text-ice" for="jira-api-token"
+							>API token
+							<span class="text-brand" aria-hidden="true">*</span></label
+						>
 						<button
-							class="text-xs font-medium text-mint hover:underline"
+							class="text-xs font-bold text-brand hover:underline"
 							type="button"
 							onclick={() => (showsTokenTutorial = true)}
 						>
-							Create token
+							How to create one
 						</button>
 					</div>
 					<div class="relative">
-						<input
+						<Input
 							id="jira-api-token"
-							class="field-control pr-20"
+							class="pr-20"
 							name="apiToken"
 							type={showsToken ? "text" : "password"}
 							autocomplete="current-password"
@@ -160,7 +160,7 @@
 							required
 						/>
 						<button
-							class="absolute inset-y-0 right-3 text-xs font-semibold text-muted hover:text-ice"
+							class="absolute inset-y-0 right-3 text-xs font-bold text-muted hover:text-ice"
 							type="button"
 							onclick={() => (showsToken = !showsToken)}
 						>
@@ -170,19 +170,24 @@
 				</div>
 
 				{#if errorMessage}
-					<ErrorBanner message={errorMessage} />
+					<Alert message={errorMessage} />
 				{/if}
 
-				<button
-					class="primary-button w-full"
+				<Button
+					class="w-full"
+					variant="primary"
+					size="large"
 					type="submit"
-					disabled={isConnecting}
+					loading={isConnecting}
 				>
 					{isConnecting ? "Checking Jira…" : "Connect Jira"}
-					<span aria-hidden="true">→</span>
-				</button>
+					<Icon name="arrowRight" size={17} />
+				</Button>
+				<p class="text-center text-[0.68rem] leading-5 text-muted">
+					Credentials are encrypted and stored in your browser
+				</p>
 			</form>
-		</section>
+		</Card>
 	</div>
 </main>
 

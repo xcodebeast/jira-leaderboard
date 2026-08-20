@@ -107,11 +107,15 @@ export async function loadBoards(
 
 export async function loadDevelopmentSetupSuggestion(
 	boardIdentifier: number,
+	preferredFieldIdentifiers: string[] = [],
 ): Promise<JiraSetupSuggestion> {
 	const searchParameters = new URLSearchParams({
 		boardIdentifier: String(boardIdentifier),
 		mode: "development",
 	});
+	for (const fieldIdentifier of preferredFieldIdentifiers) {
+		searchParameters.append("preferredFieldIdentifier", fieldIdentifier);
+	}
 	const response = await requestJson<{ suggestion: JiraSetupSuggestion }>(
 		`/api/jira/setup?${searchParameters}`,
 	);
@@ -120,11 +124,15 @@ export async function loadDevelopmentSetupSuggestion(
 
 export async function loadQualityAssuranceSetupSuggestion(
 	boardIdentifier: number,
+	preferredFieldIdentifiers: string[] = [],
 ): Promise<QualityAssuranceSetupSuggestion> {
 	const searchParameters = new URLSearchParams({
 		boardIdentifier: String(boardIdentifier),
 		mode: "qualityAssurance",
 	});
+	for (const fieldIdentifier of preferredFieldIdentifiers) {
+		searchParameters.append("preferredFieldIdentifier", fieldIdentifier);
+	}
 	const response = await requestJson<{
 		suggestion: QualityAssuranceSetupSuggestion;
 	}>(`/api/jira/setup?${searchParameters}`);

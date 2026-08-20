@@ -9,15 +9,27 @@
 		summarizeResolvedIssues,
 		totalResolvedSummary,
 	} from "../domain/period-performance";
-	import ErrorBanner from "./ErrorBanner.svelte";
-	import LoadingState from "./LoadingState.svelte";
-	import MetricCard from "./MetricCard.svelte";
+	import { formatDelta, formatNumber } from "../presentation/format";
+	import Alert from "./ui/Alert.svelte";
+	import Avatar from "./ui/Avatar.svelte";
+	import Button from "./ui/Button.svelte";
+	import Card from "./ui/Card.svelte";
+	import Checkbox from "./ui/Checkbox.svelte";
+	import EmptyState from "./ui/EmptyState.svelte";
+	import Field from "./ui/Field.svelte";
+	import Input from "./ui/Input.svelte";
+	import LoadingState from "./ui/LoadingState.svelte";
+	import MetricCard from "./ui/MetricCard.svelte";
+	import Table from "./ui/Table.svelte";
+	import Textarea from "./ui/Textarea.svelte";
 
 	interface Properties {
 		configuration: AppConfiguration;
 	}
 
 	interface PeriodReport {
+		baselineLabel: string;
+		comparisonLabel: string;
 		baselineSummaries: DeveloperResolvedSummary[];
 		comparisonSummaries: DeveloperResolvedSummary[];
 		comparisons: DeveloperResolvedComparison[];
@@ -43,7 +55,7 @@
 	let comparisonStartDate = $state(dateWithOffset(-29));
 	let comparisonEndDate = $state(dateWithOffset(0));
 	let projectKey = $state("");
-	let hasInitializedProjectKey = $state(false);
+	let lastConfiguredProjectKey = $state<string | null>(null);
 	let usesAdvancedQuery = $state(false);
 	let customQuery = $state("");
 	let developerFilters = $state("");
@@ -52,10 +64,14 @@
 	let errorMessage = $state("");
 
 	$effect(() => {
-		if (!hasInitializedProjectKey) {
-			projectKey = configuration.defaultProjectKey;
-			hasInitializedProjectKey = true;
+		const configuredProjectKey = configuration.defaultProjectKey;
+		if (
+			lastConfiguredProjectKey === null ||
+			projectKey === lastConfiguredProjectKey
+		) {
+			projectKey = configuredProjectKey;
 		}
+		lastConfiguredProjectKey = configuredProjectKey;
 	});
 
 	let maximumChartPoints = $derived(
@@ -67,18 +83,7 @@
 			]) ?? []),
 		),
 	);
-
-	const numberFormatter = new Intl.NumberFormat("en-US", {
-		maximumFractionDigits: 1,
-	});
-
-	function formatNumber(value: number): string {
-		return numberFormatter.format(value);
-	}
-
-	function formatDelta(value: number): string {
-		return `${value > 0 ? "+" : ""}${formatNumber(value)}`;
-	}
+	let comparisons = $derived(report?.comparisons ?? []);
 
 	function deltaClass(value: number): string {
 		return value > 0
@@ -88,8 +93,8 @@
 				: "text-muted";
 	}
 
-	function parsedDeveloperFilters(): string[] {
-		return developerFilters
+	function parsedDeveloperFilters(filterText: string): string[] {
+		return filterText
 			.split(/[,\n]/)
 			.map((filter) => filter.trim())
 			.filter(Boolean);
@@ -97,36 +102,57 @@
 
 	async function runComparison(event?: SubmitEvent): Promise<void> {
 		event?.preventDefault();
+		const requestedBaselineLabel = baselineLabel.trim() || "Baseline";
+		const requestedBaselineStartDate = baselineStartDate;
+		const requestedBaselineEndDate = baselineEndDate;
+		const requestedComparisonLabel = comparisonLabel.trim() || "Comparison";
+		const requestedComparisonStartDate = comparisonStartDate;
+		const requestedComparisonEndDate = comparisonEndDate;
+		const requestedProjectKey = projectKey.trim();
+		const requestedCustomQuery = customQuery.trim();
+		const requestedDeveloperFilters = developerFilters;
+		const requestedAdvancedQuery = usesAdvancedQuery;
+		report = null;
 		isLoading = true;
 		errorMessage = "";
 		try {
-			if (usesAdvancedQuery && !customQuery.trim()) {
+			if (requestedAdvancedQuery && !requestedCustomQuery) {
 				throw new Error(
 					"Enter a Jira query before running an advanced comparison.",
 				);
 			}
-			if (!usesAdvancedQuery && !projectKey.trim()) {
+			if (!requestedAdvancedQuery && !requestedProjectKey) {
 				throw new Error("Enter a Jira project key.");
 			}
+			if (requestedBaselineStartDate > requestedBaselineEndDate) {
+				throw new Error(
+					"The baseline start date must be before its end date.",
+				);
+			}
+			if (requestedComparisonStartDate > requestedComparisonEndDate) {
+				throw new Error(
+					"The comparison start date must be before its end date.",
+				);
+			}
 
-			const scope = usesAdvancedQuery
-				? { scopeQuery: customQuery.trim() }
-				: { projectKey: projectKey.trim() };
+			const scope = requestedAdvancedQuery
+				? { scopeQuery: requestedCustomQuery }
+				: { projectKey: requestedProjectKey };
 			const [baselineResult, comparisonResult] = await Promise.all([
 				loadPeriodIssues({
-					startDate: baselineStartDate,
-					endDate: baselineEndDate,
+					startDate: requestedBaselineStartDate,
+					endDate: requestedBaselineEndDate,
 					fieldMapping: configuration.fieldMapping,
 					...scope,
 				}),
 				loadPeriodIssues({
-					startDate: comparisonStartDate,
-					endDate: comparisonEndDate,
+					startDate: requestedComparisonStartDate,
+					endDate: requestedComparisonEndDate,
 					fieldMapping: configuration.fieldMapping,
 					...scope,
 				}),
 			]);
-			const filters = parsedDeveloperFilters();
+			const filters = parsedDeveloperFilters(requestedDeveloperFilters);
 			const baselineSummaries = filterResolvedSummaries(
 				summarizeResolvedIssues(baselineResult.issues),
 				filters,
@@ -144,6 +170,8 @@
 				comparisonSummaries,
 			);
 			report = {
+				baselineLabel: requestedBaselineLabel,
+				comparisonLabel: requestedComparisonLabel,
 				baselineSummaries,
 				comparisonSummaries,
 				comparisons: compareResolvedSummaries(
@@ -167,249 +195,236 @@
 </script>
 
 <main class="mx-auto max-w-[94rem] px-5 py-8 sm:px-8 sm:py-10">
-	<header>
+	<header class="max-w-3xl">
 		<h1
-			class="mt-3 text-3xl font-bold tracking-[-0.04em] text-white sm:text-4xl"
+			class="display-title mt-3 text-4xl leading-none text-ice sm:text-5xl"
 		>
-			Period comparison
+			Compare periods
 		</h1>
-		<p class="mt-2 text-sm text-muted">
-			Compare resolved story points and ticket counts across any two date
-			ranges.
+		<p class="mt-3 max-w-2xl text-sm leading-6 text-muted sm:text-base">
+			Put two delivery windows side by side to spot team movement
 		</p>
 	</header>
 
-	<form
-		class="surface-card mt-8 rounded-2xl p-5 sm:p-6"
-		onsubmit={runComparison}
-	>
-		<div class="grid gap-6 lg:grid-cols-2 lg:gap-8">
-			<fieldset class="grid gap-4 sm:grid-cols-2">
-				<legend class="mb-3 text-sm font-bold text-white">
-					Baseline period
-				</legend>
-				<label class="block sm:col-span-2"
-					><span
-						class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-						>Label</span
-					><input
-						class="field-control"
-						bind:value={baselineLabel}
-					/></label
-				>
-				<label class="block"
-					><span
-						class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-						>From</span
-					><input
-						class="field-control"
-						type="date"
-						bind:value={baselineStartDate}
-						required
-					/></label
-				>
-				<label class="block"
-					><span
-						class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-						>Through</span
-					><input
-						class="field-control"
-						type="date"
-						bind:value={baselineEndDate}
-						required
-					/></label
-				>
-			</fieldset>
-			<fieldset
-				class="grid gap-4 border-t border-line/60 pt-6 sm:grid-cols-2 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
-			>
-				<legend class="mb-3 text-sm font-bold text-white">
-					Comparison period
-				</legend>
-				<label class="block sm:col-span-2"
-					><span
-						class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-						>Label</span
-					><input
-						class="field-control"
-						bind:value={comparisonLabel}
-					/></label
-				>
-				<label class="block"
-					><span
-						class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-						>From</span
-					><input
-						class="field-control"
-						type="date"
-						bind:value={comparisonStartDate}
-						required
-					/></label
-				>
-				<label class="block"
-					><span
-						class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-						>Through</span
-					><input
-						class="field-control"
-						type="date"
-						bind:value={comparisonEndDate}
-						required
-					/></label
-				>
-			</fieldset>
-		</div>
-
-		<div
-			class="mt-7 grid gap-5 border-t border-line/60 pt-6 lg:grid-cols-[1fr_1.4fr]"
-		>
-			<div>
-				<label
-					class="flex items-center gap-3 text-sm font-semibold text-ice"
-				>
-					<input
-						class="size-4 accent-mint"
-						type="checkbox"
-						bind:checked={usesAdvancedQuery}
-					/>
-					Use advanced JQL scope
-				</label>
-				{#if usesAdvancedQuery}
-					<textarea
-						class="field-control mt-3 min-h-24 resize-y font-mono text-xs"
-						bind:value={customQuery}
-						placeholder="project = DEMO AND component = Platform"
-					></textarea>
-					<p class="mt-2 text-xs leading-5 text-muted">
-						Resolution dates and ordering are added safely by the
-						app.
-					</p>
-				{:else}
-					<label class="mt-3 block"
-						><span
-							class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-							>Project key</span
-						><input
-							class="field-control max-w-xs"
-							bind:value={projectKey}
-							placeholder="DEMO"
-							required
-						/></label
+	<Card class="mt-8 rounded-[1.2rem] p-5 sm:p-6" accent="info">
+		<form onsubmit={runComparison}>
+			<div class="grid gap-6 lg:grid-cols-2 lg:gap-8">
+				<fieldset class="grid gap-4 sm:grid-cols-2">
+					<legend
+						class="mb-1 flex items-center gap-2 text-sm font-extrabold text-ice"
 					>
-				{/if}
-			</div>
-			<label class="block">
-				<span
-					class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
-					>Developers · optional</span
-				>
-				<textarea
-					class="field-control min-h-24 resize-y"
-					bind:value={developerFilters}
-					placeholder="Alex Morgan, Bailey Chen"
-				></textarea>
-				<span class="mt-2 block text-xs leading-5 text-muted"
-					>Leave empty for everyone, or separate exact display names
-					with commas or new lines.</span
-				>
-			</label>
-		</div>
+						<span
+							class="grid size-6 place-items-center rounded-full bg-muted/15 font-mono text-[0.65rem] text-muted"
+							>A</span
+						>
+						Baseline period
+					</legend>
+					<Field label="Label" compact class="sm:col-span-2">
+						<Input bind:value={baselineLabel} />
+					</Field>
+					<Field label="From" compact>
+						<Input
+							type="date"
+							bind:value={baselineStartDate}
+							required
+						/>
+					</Field>
+					<Field label="Through" compact>
+						<Input
+							type="date"
+							bind:value={baselineEndDate}
+							required
+						/>
+					</Field>
+				</fieldset>
 
-		<div class="mt-6 flex justify-end">
-			<button
-				class="primary-button min-w-44"
-				type="submit"
-				disabled={isLoading}
+				<fieldset
+					class="grid gap-4 border-t border-line/60 pt-6 sm:grid-cols-2 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
+				>
+					<legend
+						class="mb-1 flex items-center gap-2 text-sm font-extrabold text-ice"
+					>
+						<span
+							class="grid size-6 place-items-center rounded-full bg-sky/15 font-mono text-[0.65rem] text-sky"
+							>B</span
+						>
+						Comparison period
+					</legend>
+					<Field label="Label" compact class="sm:col-span-2">
+						<Input bind:value={comparisonLabel} />
+					</Field>
+					<Field label="From" compact>
+						<Input
+							type="date"
+							bind:value={comparisonStartDate}
+							required
+						/>
+					</Field>
+					<Field label="Through" compact>
+						<Input
+							type="date"
+							bind:value={comparisonEndDate}
+							required
+						/>
+					</Field>
+				</fieldset>
+			</div>
+
+			<div
+				class="mt-7 grid gap-5 border-t border-line/60 pt-6 lg:grid-cols-[1fr_1.4fr]"
 			>
-				{isLoading ? "Comparing…" : "Run comparison"}
-				<span aria-hidden="true">→</span>
-			</button>
-		</div>
-	</form>
+				<div>
+					<label
+						class="flex items-center gap-3 text-sm font-bold text-ice"
+						for="uses-advanced-query"
+					>
+						<Checkbox
+							id="uses-advanced-query"
+							bind:checked={usesAdvancedQuery}
+						/>
+						Use advanced JQL scope
+					</label>
+					{#if usesAdvancedQuery}
+						<Field
+							label="JQL scope"
+							compact
+							hint="Resolution dates and ordering are added safely by the app."
+							class="mt-3"
+						>
+							<Textarea
+								class="min-h-24 resize-y font-mono text-xs"
+								bind:value={customQuery}
+								placeholder="project = DEMO AND component = Platform"
+							/>
+						</Field>
+					{:else}
+						<Field
+							label="Project key"
+							compact
+							class="mt-3 max-w-xs"
+						>
+							<Input
+								bind:value={projectKey}
+								placeholder="DEMO"
+								required
+							/>
+						</Field>
+					{/if}
+				</div>
+				<Field
+					label="Developers · optional"
+					compact
+					hint="Leave empty for everyone, or separate exact display names with commas or new lines."
+				>
+					<Textarea
+						class="min-h-24 resize-y"
+						bind:value={developerFilters}
+						placeholder="Alex Morgan, Bailey Chen"
+					/>
+				</Field>
+			</div>
+
+			<div class="mt-6 flex justify-end">
+				<Button
+					variant="primary"
+					size="large"
+					type="submit"
+					loading={isLoading}
+					class="min-w-44"
+				>
+					{isLoading ? "Comparing…" : "Run comparison"}
+				</Button>
+			</div>
+		</form>
+	</Card>
 
 	{#if errorMessage}
 		<div class="mt-6">
-			<ErrorBanner
-				message={errorMessage}
-				onRetry={() => runComparison()}
-			/>
+			<Alert message={errorMessage} onRetry={() => runComparison()} />
 		</div>
 	{/if}
 
-	{#if isLoading}
+	{#if isLoading && !report}
 		<LoadingState message="Comparing resolved work…" />
 	{:else if report}
-		<section class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+		<section
+			class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+			aria-label="Period comparison totals"
+		>
 			<MetricCard
-				label={baselineLabel || "Baseline"}
+				label={report.baselineLabel}
 				value={formatNumber(report.totalComparison.baselinePoints)}
 				subtitle={`${report.totalComparison.baselineTickets} resolved tickets`}
+				context="Starting point"
 			/>
 			<MetricCard
-				label={comparisonLabel || "Comparison"}
+				label={report.comparisonLabel}
 				value={formatNumber(report.totalComparison.comparisonPoints)}
 				subtitle={`${report.totalComparison.comparisonTickets} resolved tickets`}
-				tone="violet"
+				tone="info"
+				context="New window"
 			/>
 			<MetricCard
 				label="Points change"
 				value={formatDelta(report.totalComparison.pointsDelta)}
 				subtitle={report.totalComparison.pointsChange}
 				tone={report.totalComparison.pointsDelta >= 0
-					? "mint"
-					: "coral"}
+					? "success"
+					: "danger"}
+				context="Momentum"
 			/>
 			<MetricCard
 				label="Ticket change"
 				value={formatDelta(report.totalComparison.ticketsDelta)}
 				subtitle="Resolved ticket delta"
 				tone={report.totalComparison.ticketsDelta >= 0
-					? "mint"
-					: "coral"}
+					? "success"
+					: "danger"}
+				context="Throughput"
 			/>
 		</section>
 
-		{#if report.comparisons.length === 0}
-			<section
-				class="surface-card mt-6 rounded-2xl px-6 py-16 text-center"
-			>
-				<p class="text-lg font-bold text-white">No resolved tickets</p>
-				<p class="mt-2 text-sm text-muted">
-					Jira found no resolved work in either selected period.
-				</p>
-			</section>
+		{#if comparisons.length === 0}
+			<Card class="mt-6 rounded-[1.2rem]">
+				<EmptyState
+					title="No resolved tickets"
+					description="Jira found no resolved work in either selected period."
+					symbol="◇"
+				/>
+			</Card>
 		{:else}
-			<section class="surface-card mt-6 rounded-2xl p-5 sm:p-6">
+			<Card class="mt-6 rounded-[1.2rem] p-5 sm:p-6">
 				<div
 					class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
 				>
 					<div>
 						<p class="eyebrow">Points by developer</p>
-						<h2 class="mt-2 text-lg font-bold text-white">
-							{baselineLabel || "Baseline"}
-							vs {comparisonLabel || "Comparison"}
+						<h2 class="mt-2 text-lg font-extrabold text-ice">
+							{report.baselineLabel}
+							vs {report.comparisonLabel}
 						</h2>
 					</div>
-					<div class="flex gap-4 text-xs font-semibold text-muted">
+					<div class="flex gap-4 text-xs font-bold text-muted">
 						<span
 							><i
 								class="mr-1.5 inline-block size-2 rounded-full bg-muted"
 							></i>
-							{baselineLabel || "Baseline"}</span
-						><span
+							{report.baselineLabel}</span
+						>
+						<span
 							><i
-								class="mr-1.5 inline-block size-2 rounded-full bg-violet"
+								class="mr-1.5 inline-block size-2 rounded-full bg-sky"
 							></i>
-							{comparisonLabel || "Comparison"}</span
+							{report.comparisonLabel}</span
 						>
 					</div>
 				</div>
 				<div class="mt-7 space-y-5">
-					{#each report.comparisons as comparison (comparison.developer)}
+					{#each comparisons as comparison (comparison.developer)}
 						<div
 							class="grid gap-2 sm:grid-cols-[12rem_1fr_4rem] sm:items-center"
 						>
-							<p class="truncate text-sm font-semibold text-ice">
+							<p class="truncate text-sm font-bold text-ice">
 								{comparison.developer}
 							</p>
 							<div class="space-y-1.5">
@@ -425,114 +440,167 @@
 									class="h-2 overflow-hidden rounded-full bg-line/70"
 								>
 									<div
-										class="h-full rounded-full bg-violet"
+										class="h-full rounded-full bg-sky"
 										style={`width: ${(comparison.comparisonPoints / maximumChartPoints) * 100}%`}
 									></div>
 								</div>
 							</div>
 							<p
-								class={`metric-value text-right text-sm font-bold ${deltaClass(comparison.pointsDelta)}`}
+								class={`metric-value text-right text-sm font-extrabold ${deltaClass(comparison.pointsDelta)}`}
 							>
 								{formatDelta(comparison.pointsDelta)}
 							</p>
 						</div>
 					{/each}
 				</div>
-			</section>
+			</Card>
 
-			<section class="surface-card mt-6 overflow-hidden rounded-2xl">
+			<Card class="mt-6 overflow-hidden rounded-[1.2rem]">
 				<div class="border-b border-line/70 px-5 py-5 sm:px-6">
-					<h2 class="font-bold text-white">Developer comparison</h2>
+					<h2 class="text-lg font-extrabold text-ice">
+						Developer movement
+					</h2>
 					<p class="mt-1 text-xs text-muted">
 						Resolved story points and ticket counts.
 					</p>
 				</div>
-				<div class="overflow-x-auto">
-					<table
-						class="w-full min-w-[46rem] border-collapse text-left"
-					>
-						<thead
-							class="bg-canvas/35 text-[0.67rem] uppercase tracking-[0.1em] text-muted"
-						>
-							<tr>
-								<th class="px-6 py-3 font-semibold"
-									>Developer</th
-								>
-								<th class="px-4 py-3 text-right font-semibold"
-									>Baseline</th
-								>
-								<th class="px-4 py-3 text-right font-semibold"
-									>Comparison</th
-								>
-								<th class="px-4 py-3 text-right font-semibold"
-									>Points Δ</th
-								>
-								<th class="px-4 py-3 text-right font-semibold"
-									>Change</th
-								>
-								<th class="px-6 py-3 text-right font-semibold"
-									>Tickets Δ</th
-								>
-							</tr>
-						</thead>
-						<tbody class="divide-y divide-line/55">
-							{#each report.comparisons as comparison (comparison.developer)}
-								<tr class="hover:bg-panel-soft/45">
-									<td
-										class="px-6 py-4 font-semibold text-ice"
-									>
+
+				<div class="divide-y divide-line/55 md:hidden">
+					{#each comparisons as comparison (comparison.developer)}
+						<article class="p-5">
+							<div
+								class="flex items-center justify-between gap-3"
+							>
+								<div class="flex min-w-0 items-center gap-3">
+									<Avatar
+										name={comparison.developer}
+										tone="info"
+									/>
+									<p class="truncate font-extrabold text-ice">
 										{comparison.developer}
-									</td>
-									<td
-										class="metric-value px-4 py-4 text-right text-muted"
+									</p>
+								</div>
+								<p
+									class={`metric-value text-xl font-extrabold ${deltaClass(comparison.pointsDelta)}`}
+								>
+									{formatDelta(comparison.pointsDelta)}
+								</p>
+							</div>
+							<dl
+								class="mt-4 grid grid-cols-2 gap-2 text-center text-xs"
+							>
+								<div class="rounded-lg bg-canvas/35 p-2">
+									<dt class="text-muted">Baseline</dt>
+									<dd
+										class="metric-value mt-1 font-bold text-ice"
 									>
 										{formatNumber(
 											comparison.baselinePoints,
 										)}
-									</td>
-									<td
-										class="metric-value px-4 py-4 text-right font-bold text-violet"
+									</dd>
+								</div>
+								<div class="rounded-lg bg-canvas/35 p-2">
+									<dt class="text-muted">Comparison</dt>
+									<dd
+										class="metric-value mt-1 font-bold text-sky"
 									>
 										{formatNumber(
 											comparison.comparisonPoints,
 										)}
-									</td>
-									<td
-										class={`metric-value px-4 py-4 text-right font-bold ${deltaClass(comparison.pointsDelta)}`}
-									>
-										{formatDelta(comparison.pointsDelta)}
-									</td>
-									<td
-										class={`px-4 py-4 text-right font-mono text-xs ${deltaClass(comparison.pointsDelta)}`}
+									</dd>
+								</div>
+								<div class="rounded-lg bg-canvas/35 p-2">
+									<dt class="text-muted">Points change</dt>
+									<dd
+										class={`metric-value mt-1 font-bold ${deltaClass(comparison.pointsDelta)}`}
 									>
 										{comparison.pointsChange}
-									</td>
-									<td
-										class={`metric-value px-6 py-4 text-right ${deltaClass(comparison.ticketsDelta)}`}
+									</dd>
+								</div>
+								<div class="rounded-lg bg-canvas/35 p-2">
+									<dt class="text-muted">Tickets Δ</dt>
+									<dd
+										class={`metric-value mt-1 font-bold ${deltaClass(comparison.ticketsDelta)}`}
 									>
 										{formatDelta(comparison.ticketsDelta)}
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
+									</dd>
+								</div>
+							</dl>
+						</article>
+					{/each}
 				</div>
-			</section>
+
+				<Table
+					class="hidden md:block"
+					label="Developer period comparison"
+					minimumWidth="48rem"
+				>
+					{#snippet head()}
+						<tr>
+							<th class="px-6 py-3 font-bold">Developer</th>
+							<th class="px-4 py-3 text-right font-bold"
+								>Baseline</th
+							>
+							<th class="px-4 py-3 text-right font-bold"
+								>Comparison</th
+							>
+							<th class="px-4 py-3 text-right font-bold"
+								>Points Δ</th
+							>
+							<th class="px-4 py-3 text-right font-bold"
+								>Change</th
+							>
+							<th class="px-6 py-3 text-right font-bold"
+								>Tickets Δ</th
+							>
+						</tr>
+					{/snippet}
+					{#snippet body()}
+						{#each comparisons as comparison (comparison.developer)}
+							<tr
+								class="transition-colors hover:bg-panel-soft/45"
+							>
+								<td class="px-6 py-4 font-bold text-ice">
+									{comparison.developer}
+								</td>
+								<td
+									class="metric-value px-4 py-4 text-right text-muted"
+								>
+									{formatNumber(comparison.baselinePoints)}
+								</td>
+								<td
+									class="metric-value px-4 py-4 text-right font-extrabold text-sky"
+								>
+									{formatNumber(comparison.comparisonPoints)}
+								</td>
+								<td
+									class={`metric-value px-4 py-4 text-right font-extrabold ${deltaClass(comparison.pointsDelta)}`}
+								>
+									{formatDelta(comparison.pointsDelta)}
+								</td>
+								<td
+									class={`px-4 py-4 text-right font-mono text-xs ${deltaClass(comparison.pointsDelta)}`}
+								>
+									{comparison.pointsChange}
+								</td>
+								<td
+									class={`metric-value px-6 py-4 text-right ${deltaClass(comparison.ticketsDelta)}`}
+								>
+									{formatDelta(comparison.ticketsDelta)}
+								</td>
+							</tr>
+						{/each}
+					{/snippet}
+				</Table>
+			</Card>
 		{/if}
 	{:else}
-		<section
-			class="mt-8 rounded-2xl border border-dashed border-line px-6 py-16 text-center"
-		>
-			<p class="font-mono text-3xl text-violet/70" aria-hidden="true">
-				◫
-			</p>
-			<h2 class="mt-4 text-lg font-bold text-white">
-				Choose two periods
-			</h2>
-			<p class="mt-2 text-sm text-muted">
-				The default windows compare the previous 30 days with the most
-				recent 30 days.
-			</p>
-		</section>
+		<Card class="mt-8 rounded-[1.2rem] border-dashed">
+			<EmptyState
+				title="Choose two periods"
+				description="The default windows compare the previous 30 days with the most recent 30 days."
+				symbol="↔"
+			/>
+		</Card>
 	{/if}
 </main>

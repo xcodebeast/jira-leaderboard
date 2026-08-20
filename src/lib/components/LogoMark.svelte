@@ -1,4 +1,6 @@
 <script lang="ts">
+import Icon from "./ui/Icon.svelte";
+
 interface Properties {
 	compact?: boolean;
 }
@@ -8,16 +10,19 @@ let { compact = false }: Properties = $props();
 
 <div class="flex items-center gap-3">
 	<div
-		class="grid size-10 shrink-0 grid-cols-3 items-end gap-1 rounded-xl border border-mint/20 bg-mint/8 p-2 shadow-[inset_0_0_20px_rgba(139,255,202,0.05)]"
+		class="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-[0.9rem] border border-brand/70 bg-brand text-[#171306] shadow-[0_8px_24px_rgb(246_207_91/0.13)]"
 		aria-hidden="true"
 	>
-		<span class="h-2 rounded-sm bg-mint/55"></span>
-		<span class="h-4 rounded-sm bg-mint/75"></span>
-		<span class="h-6 rounded-sm bg-mint"></span>
+		<span
+			class="absolute -right-3 -top-3 size-7 rounded-full bg-white/30"
+		></span>
+		<Icon name="trophy" size={21} strokeWidth={2.1} />
 	</div>
 	{#if !compact}
 		<div>
-			<p class="text-md font-bold tracking-tight text-white">
+			<p
+				class="text-sm font-extrabold tracking-[-0.02em] text-ice sm:text-base"
+			>
 				Jira Leaderboard
 			</p>
 		</div>

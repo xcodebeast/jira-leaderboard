@@ -4,9 +4,13 @@
 	role="img"
 	aria-label="Jira Leaderboard"
 >
-	<rect width="64" height="64" rx="16" fill="#08111f" />
+	<rect width="64" height="64" rx="16" fill="#F6CF5B" />
 	<path
-		d="M15 45V29h8v16h-8Zm13 0V19h8v26h-8Zm13 0V11h8v34h-8Z"
-		fill="#8bffca"
+		d="M20 14h24v12c0 7-5.4 12.8-12 12.8S20 33 20 26V14Zm0 5h-6v3c0 6 3.8 10.8 9.2 12.5M44 19h6v3c0 6-3.8 10.8-9.2 12.5M32 39v7m-8 5h16M25 46h14"
+		fill="none"
+		stroke="#171306"
+		stroke-width="4"
+		stroke-linecap="round"
+		stroke-linejoin="round"
 	/>
 </svg>
