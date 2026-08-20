@@ -177,13 +177,14 @@ export async function loadQualityAssuranceSprintIssues(
 export async function loadDevelopmentAllTimeIssues(
 	boardIdentifier: number,
 	doneStatus: string,
+	year: number | null,
 	fieldMapping: JiraFieldMapping,
 ): Promise<JiraIssue[]> {
 	const response = await requestJson<{ issues: JiraIssue[] }>(
 		"/api/jira/development-all-time-issues",
 		{
 			method: "POST",
-			body: { boardIdentifier, doneStatus, fieldMapping },
+			body: { boardIdentifier, doneStatus, year, fieldMapping },
 		},
 	);
 	return response.issues;
@@ -192,13 +193,14 @@ export async function loadDevelopmentAllTimeIssues(
 export async function loadQualityAssuranceAllTimeIssues(
 	boardIdentifier: number,
 	doneStatus: string,
+	year: number | null,
 	fieldMapping: QualityAssuranceFieldMapping,
 ): Promise<JiraQualityAssuranceIssue[]> {
 	const response = await requestJson<{ issues: JiraQualityAssuranceIssue[] }>(
 		"/api/jira/quality-assurance-all-time-issues",
 		{
 			method: "POST",
-			body: { boardIdentifier, doneStatus, fieldMapping },
+			body: { boardIdentifier, doneStatus, year, fieldMapping },
 		},
 	);
 	return response.issues;

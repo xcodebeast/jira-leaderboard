@@ -86,8 +86,14 @@ describe("all-time performance", () => {
 		]);
 	});
 
-	test("escapes the configured Done status before adding it to JQL", () => {
-		expect(buildDoneIssuesQuery('Done \\ "verified"')).toBe(
+	test("scopes the Done query to a selected calendar year", () => {
+		expect(buildDoneIssuesQuery("Done", 2026)).toBe(
+			'status = "Done" AND resolved >= "2026-01-01" AND resolved < "2027-01-01"',
+		);
+	});
+
+	test("uses an unbounded query for all time and safely escapes the status", () => {
+		expect(buildDoneIssuesQuery('Done \\ "verified"', null)).toBe(
 			'status = "Done \\\\ \\"verified\\""',
 		);
 	});

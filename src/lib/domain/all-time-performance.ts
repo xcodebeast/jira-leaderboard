@@ -92,9 +92,17 @@ export function totalAllTimeLeaderboard(entries: AllTimeLeaderboardEntry[]): {
 	);
 }
 
-export function buildDoneIssuesQuery(doneStatus: string): string {
+export function buildDoneIssuesQuery(
+	doneStatus: string,
+	year: number | null,
+): string {
 	const escapedStatus = doneStatus
 		.replaceAll("\\", "\\\\")
 		.replaceAll('"', '\\"');
-	return `status = "${escapedStatus}"`;
+	const statusCondition = `status = "${escapedStatus}"`;
+	if (year === null) {
+		return statusCondition;
+	}
+
+	return `${statusCondition} AND resolved >= "${year}-01-01" AND resolved < "${year + 1}-01-01"`;
 }

@@ -39,7 +39,7 @@ let navigationItems = $derived<
 				symbol: string;
 			}>)
 		: []),
-	{ view: "allTime", label: "All time", symbol: "∞" },
+	{ view: "allTime", label: "Leaderboard", symbol: "∞" },
 	{ view: "period", label: "Periods", symbol: "◫" },
 	{ view: "settings", label: "Settings", symbol: "⚙" },
 ]);

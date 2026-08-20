@@ -1,6 +1,7 @@
 import {
 	apiErrorResponse,
 	apiJson,
+	optionalCalendarYear,
 	readJsonObject,
 	requiredPositiveInteger,
 	requiredString,
@@ -24,6 +25,7 @@ export const POST: RequestHandler = async ({ cookies, request }) => {
 			"Done status",
 			200,
 		);
+		const year = optionalCalendarYear(payload, "year", "leaderboard year");
 		const fieldMapping = parseQualityAssuranceFieldMapping(payload);
 		const client = new JiraClient(requireCredentialSession(cookies));
 
@@ -31,6 +33,7 @@ export const POST: RequestHandler = async ({ cookies, request }) => {
 			issues: await client.qualityAssuranceBoardDoneIssues(
 				boardIdentifier,
 				doneStatus,
+				year,
 				fieldMapping,
 			),
 		});

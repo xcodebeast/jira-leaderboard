@@ -693,12 +693,13 @@ export class JiraClient {
 	async developmentBoardDoneIssues(
 		boardIdentifier: number,
 		doneStatus: string,
+		year: number | null,
 		fieldMapping: JiraFieldMapping,
 	): Promise<JiraIssue[]> {
 		return this.boardIssues(
 			boardIdentifier,
 			this.requestedIssueFields(fieldMapping, false),
-			buildDoneIssuesQuery(doneStatus),
+			buildDoneIssuesQuery(doneStatus, year),
 			"development all-time issue page",
 			(issue) => normalizeJiraIssue(issue, fieldMapping),
 		);
@@ -707,6 +708,7 @@ export class JiraClient {
 	async qualityAssuranceBoardDoneIssues(
 		boardIdentifier: number,
 		doneStatus: string,
+		year: number | null,
 		fieldMapping: QualityAssuranceFieldMapping,
 	): Promise<JiraQualityAssuranceIssue[]> {
 		const requestedFields = [
@@ -718,7 +720,7 @@ export class JiraClient {
 		return this.boardIssues(
 			boardIdentifier,
 			requestedFields,
-			buildDoneIssuesQuery(doneStatus),
+			buildDoneIssuesQuery(doneStatus, year),
 			"quality assurance all-time issue page",
 			(issue) => normalizeJiraQualityAssuranceIssue(issue, fieldMapping),
 		);

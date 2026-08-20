@@ -1,13 +1,9 @@
 import { json } from "@sveltejs/kit";
+import { ClientInputError } from "./client-input";
 import { JiraRequestError } from "./jira-client";
 import { SessionConfigurationError, SessionRequiredError } from "./session";
 
-export class ClientInputError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "ClientInputError";
-	}
-}
+export { ClientInputError, optionalCalendarYear } from "./client-input";
 
 export function apiJson(data: unknown, status = 200): Response {
 	return json(data, {

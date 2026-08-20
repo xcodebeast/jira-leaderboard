@@ -36,11 +36,9 @@ body {
 	margin: 0;
 	background:
 		radial-gradient(circle at 12% -5%, rgb(72 255 184 / 10%), transparent 34rem),
-		radial-gradient(
-			circle at 96% 10%,
+		radial-gradient(circle at 96% 10%,
 			rgb(152 132 255 / 11%),
-			transparent 30rem
-		),
+			transparent 30rem),
 		var(--color-canvas);
 }
 

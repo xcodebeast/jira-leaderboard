@@ -1,170 +1,173 @@
 <script lang="ts">
-import { loadPeriodIssues } from "../browser/api-client";
-import type { AppConfiguration } from "../browser/configuration";
-import {
-	compareResolvedSummaries,
-	type DeveloperResolvedComparison,
-	type DeveloperResolvedSummary,
-	filterResolvedSummaries,
-	summarizeResolvedIssues,
-	totalResolvedSummary,
-} from "../domain/period-performance";
-import ErrorBanner from "./ErrorBanner.svelte";
-import LoadingState from "./LoadingState.svelte";
-import MetricCard from "./MetricCard.svelte";
+	import { loadPeriodIssues } from "../browser/api-client";
+	import type { AppConfiguration } from "../browser/configuration";
+	import {
+		compareResolvedSummaries,
+		type DeveloperResolvedComparison,
+		type DeveloperResolvedSummary,
+		filterResolvedSummaries,
+		summarizeResolvedIssues,
+		totalResolvedSummary,
+	} from "../domain/period-performance";
+	import ErrorBanner from "./ErrorBanner.svelte";
+	import LoadingState from "./LoadingState.svelte";
+	import MetricCard from "./MetricCard.svelte";
 
-interface Properties {
-	configuration: AppConfiguration;
-}
-
-interface PeriodReport {
-	baselineSummaries: DeveloperResolvedSummary[];
-	comparisonSummaries: DeveloperResolvedSummary[];
-	comparisons: DeveloperResolvedComparison[];
-	totalComparison: DeveloperResolvedComparison;
-}
-
-let { configuration }: Properties = $props();
-
-function dateWithOffset(dayOffset: number): string {
-	const date = new Date();
-	date.setHours(12, 0, 0, 0);
-	date.setDate(date.getDate() + dayOffset);
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, "0");
-	const day = String(date.getDate()).padStart(2, "0");
-	return `${year}-${month}-${day}`;
-}
-
-let baselineLabel = $state("Baseline");
-let baselineStartDate = $state(dateWithOffset(-59));
-let baselineEndDate = $state(dateWithOffset(-30));
-let comparisonLabel = $state("Comparison");
-let comparisonStartDate = $state(dateWithOffset(-29));
-let comparisonEndDate = $state(dateWithOffset(0));
-let projectKey = $state("");
-let hasInitializedProjectKey = $state(false);
-let usesAdvancedQuery = $state(false);
-let customQuery = $state("");
-let developerFilters = $state("");
-let report = $state<PeriodReport | null>(null);
-let isLoading = $state(false);
-let errorMessage = $state("");
-
-$effect(() => {
-	if (!hasInitializedProjectKey) {
-		projectKey = configuration.defaultProjectKey;
-		hasInitializedProjectKey = true;
+	interface Properties {
+		configuration: AppConfiguration;
 	}
-});
 
-let maximumChartPoints = $derived(
-	Math.max(
-		1,
-		...(report?.comparisons.flatMap((comparison) => [
-			comparison.baselinePoints,
-			comparison.comparisonPoints,
-		]) ?? []),
-	),
-);
+	interface PeriodReport {
+		baselineSummaries: DeveloperResolvedSummary[];
+		comparisonSummaries: DeveloperResolvedSummary[];
+		comparisons: DeveloperResolvedComparison[];
+		totalComparison: DeveloperResolvedComparison;
+	}
 
-const numberFormatter = new Intl.NumberFormat("en-US", {
-	maximumFractionDigits: 1,
-});
+	let { configuration }: Properties = $props();
 
-function formatNumber(value: number): string {
-	return numberFormatter.format(value);
-}
+	function dateWithOffset(dayOffset: number): string {
+		const date = new Date();
+		date.setHours(12, 0, 0, 0);
+		date.setDate(date.getDate() + dayOffset);
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	}
 
-function formatDelta(value: number): string {
-	return `${value > 0 ? "+" : ""}${formatNumber(value)}`;
-}
+	let baselineLabel = $state("Baseline");
+	let baselineStartDate = $state(dateWithOffset(-59));
+	let baselineEndDate = $state(dateWithOffset(-30));
+	let comparisonLabel = $state("Comparison");
+	let comparisonStartDate = $state(dateWithOffset(-29));
+	let comparisonEndDate = $state(dateWithOffset(0));
+	let projectKey = $state("");
+	let hasInitializedProjectKey = $state(false);
+	let usesAdvancedQuery = $state(false);
+	let customQuery = $state("");
+	let developerFilters = $state("");
+	let report = $state<PeriodReport | null>(null);
+	let isLoading = $state(false);
+	let errorMessage = $state("");
 
-function deltaClass(value: number): string {
-	return value > 0 ? "text-mint" : value < 0 ? "text-coral" : "text-muted";
-}
+	$effect(() => {
+		if (!hasInitializedProjectKey) {
+			projectKey = configuration.defaultProjectKey;
+			hasInitializedProjectKey = true;
+		}
+	});
 
-function parsedDeveloperFilters(): string[] {
-	return developerFilters
-		.split(/[,\n]/)
-		.map((filter) => filter.trim())
-		.filter(Boolean);
-}
+	let maximumChartPoints = $derived(
+		Math.max(
+			1,
+			...(report?.comparisons.flatMap((comparison) => [
+				comparison.baselinePoints,
+				comparison.comparisonPoints,
+			]) ?? []),
+		),
+	);
 
-async function runComparison(event?: SubmitEvent): Promise<void> {
-	event?.preventDefault();
-	isLoading = true;
-	errorMessage = "";
-	try {
-		if (usesAdvancedQuery && !customQuery.trim()) {
-			throw new Error(
-				"Enter a Jira query before running an advanced comparison.",
+	const numberFormatter = new Intl.NumberFormat("en-US", {
+		maximumFractionDigits: 1,
+	});
+
+	function formatNumber(value: number): string {
+		return numberFormatter.format(value);
+	}
+
+	function formatDelta(value: number): string {
+		return `${value > 0 ? "+" : ""}${formatNumber(value)}`;
+	}
+
+	function deltaClass(value: number): string {
+		return value > 0
+			? "text-mint"
+			: value < 0
+				? "text-coral"
+				: "text-muted";
+	}
+
+	function parsedDeveloperFilters(): string[] {
+		return developerFilters
+			.split(/[,\n]/)
+			.map((filter) => filter.trim())
+			.filter(Boolean);
+	}
+
+	async function runComparison(event?: SubmitEvent): Promise<void> {
+		event?.preventDefault();
+		isLoading = true;
+		errorMessage = "";
+		try {
+			if (usesAdvancedQuery && !customQuery.trim()) {
+				throw new Error(
+					"Enter a Jira query before running an advanced comparison.",
+				);
+			}
+			if (!usesAdvancedQuery && !projectKey.trim()) {
+				throw new Error("Enter a Jira project key.");
+			}
+
+			const scope = usesAdvancedQuery
+				? { scopeQuery: customQuery.trim() }
+				: { projectKey: projectKey.trim() };
+			const [baselineResult, comparisonResult] = await Promise.all([
+				loadPeriodIssues({
+					startDate: baselineStartDate,
+					endDate: baselineEndDate,
+					fieldMapping: configuration.fieldMapping,
+					...scope,
+				}),
+				loadPeriodIssues({
+					startDate: comparisonStartDate,
+					endDate: comparisonEndDate,
+					fieldMapping: configuration.fieldMapping,
+					...scope,
+				}),
+			]);
+			const filters = parsedDeveloperFilters();
+			const baselineSummaries = filterResolvedSummaries(
+				summarizeResolvedIssues(baselineResult.issues),
+				filters,
 			);
-		}
-		if (!usesAdvancedQuery && !projectKey.trim()) {
-			throw new Error("Enter a Jira project key.");
-		}
-
-		const scope = usesAdvancedQuery
-			? { scopeQuery: customQuery.trim() }
-			: { projectKey: projectKey.trim() };
-		const [baselineResult, comparisonResult] = await Promise.all([
-			loadPeriodIssues({
-				startDate: baselineStartDate,
-				endDate: baselineEndDate,
-				fieldMapping: configuration.fieldMapping,
-				...scope,
-			}),
-			loadPeriodIssues({
-				startDate: comparisonStartDate,
-				endDate: comparisonEndDate,
-				fieldMapping: configuration.fieldMapping,
-				...scope,
-			}),
-		]);
-		const filters = parsedDeveloperFilters();
-		const baselineSummaries = filterResolvedSummaries(
-			summarizeResolvedIssues(baselineResult.issues),
-			filters,
-		);
-		const comparisonSummaries = filterResolvedSummaries(
-			summarizeResolvedIssues(comparisonResult.issues),
-			filters,
-		);
-		const baselineTotal = totalResolvedSummary(
-			"All Developers",
-			baselineSummaries,
-		);
-		const comparisonTotal = totalResolvedSummary(
-			"All Developers",
-			comparisonSummaries,
-		);
-		report = {
-			baselineSummaries,
-			comparisonSummaries,
-			comparisons: compareResolvedSummaries(
+			const comparisonSummaries = filterResolvedSummaries(
+				summarizeResolvedIssues(comparisonResult.issues),
+				filters,
+			);
+			const baselineTotal = totalResolvedSummary(
+				"All Developers",
+				baselineSummaries,
+			);
+			const comparisonTotal = totalResolvedSummary(
+				"All Developers",
+				comparisonSummaries,
+			);
+			report = {
 				baselineSummaries,
 				comparisonSummaries,
-			),
-			totalComparison: compareResolvedSummaries(
-				[baselineTotal],
-				[comparisonTotal],
-			)[0],
-		};
-	} catch (error) {
-		errorMessage =
-			error instanceof Error
-				? error.message
-				: "The period comparison could not be loaded.";
-	} finally {
-		isLoading = false;
+				comparisons: compareResolvedSummaries(
+					baselineSummaries,
+					comparisonSummaries,
+				),
+				totalComparison: compareResolvedSummaries(
+					[baselineTotal],
+					[comparisonTotal],
+				)[0],
+			};
+		} catch (error) {
+			errorMessage =
+				error instanceof Error
+					? error.message
+					: "The period comparison could not be loaded.";
+		} finally {
+			isLoading = false;
+		}
 	}
-}
 </script>
 
 <main class="mx-auto max-w-[94rem] px-5 py-8 sm:px-8 sm:py-10">
 	<header>
-		<p class="eyebrow">Resolved throughput</p>
 		<h1
 			class="mt-3 text-3xl font-bold tracking-[-0.04em] text-white sm:text-4xl"
 		>
@@ -189,7 +192,10 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 					><span
 						class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
 						>Label</span
-					><input class="field-control" bind:value={baselineLabel}></label
+					><input
+						class="field-control"
+						bind:value={baselineLabel}
+					/></label
 				>
 				<label class="block"
 					><span
@@ -200,7 +206,7 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 						type="date"
 						bind:value={baselineStartDate}
 						required
-					></label
+					/></label
 				>
 				<label class="block"
 					><span
@@ -211,7 +217,7 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 						type="date"
 						bind:value={baselineEndDate}
 						required
-					></label
+					/></label
 				>
 			</fieldset>
 			<fieldset
@@ -224,7 +230,10 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 					><span
 						class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
 						>Label</span
-					><input class="field-control" bind:value={comparisonLabel}></label
+					><input
+						class="field-control"
+						bind:value={comparisonLabel}
+					/></label
 				>
 				<label class="block"
 					><span
@@ -235,7 +244,7 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 						type="date"
 						bind:value={comparisonStartDate}
 						required
-					></label
+					/></label
 				>
 				<label class="block"
 					><span
@@ -246,7 +255,7 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 						type="date"
 						bind:value={comparisonEndDate}
 						required
-					></label
+					/></label
 				>
 			</fieldset>
 		</div>
@@ -255,12 +264,14 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 			class="mt-7 grid gap-5 border-t border-line/60 pt-6 lg:grid-cols-[1fr_1.4fr]"
 		>
 			<div>
-				<label class="flex items-center gap-3 text-sm font-semibold text-ice">
+				<label
+					class="flex items-center gap-3 text-sm font-semibold text-ice"
+				>
 					<input
 						class="size-4 accent-mint"
 						type="checkbox"
 						bind:checked={usesAdvancedQuery}
-					>
+					/>
 					Use advanced JQL scope
 				</label>
 				{#if usesAdvancedQuery}
@@ -270,7 +281,8 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 						placeholder="project = DEMO AND component = Platform"
 					></textarea>
 					<p class="mt-2 text-xs leading-5 text-muted">
-						Resolution dates and ordering are added safely by the app.
+						Resolution dates and ordering are added safely by the
+						app.
 					</p>
 				{:else}
 					<label class="mt-3 block"
@@ -282,7 +294,7 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 							bind:value={projectKey}
 							placeholder="DEMO"
 							required
-						></label
+						/></label
 					>
 				{/if}
 			</div>
@@ -297,8 +309,8 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 					placeholder="Alex Morgan, Bailey Chen"
 				></textarea>
 				<span class="mt-2 block text-xs leading-5 text-muted"
-					>Leave empty for everyone, or separate exact display names with commas
-					or new lines.</span
+					>Leave empty for everyone, or separate exact display names
+					with commas or new lines.</span
 				>
 			</label>
 		</div>
@@ -317,7 +329,10 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 
 	{#if errorMessage}
 		<div class="mt-6">
-			<ErrorBanner message={errorMessage} onRetry={() => runComparison()} />
+			<ErrorBanner
+				message={errorMessage}
+				onRetry={() => runComparison()}
+			/>
 		</div>
 	{/if}
 
@@ -340,18 +355,24 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 				label="Points change"
 				value={formatDelta(report.totalComparison.pointsDelta)}
 				subtitle={report.totalComparison.pointsChange}
-				tone={report.totalComparison.pointsDelta >= 0 ? "mint" : "coral"}
+				tone={report.totalComparison.pointsDelta >= 0
+					? "mint"
+					: "coral"}
 			/>
 			<MetricCard
 				label="Ticket change"
 				value={formatDelta(report.totalComparison.ticketsDelta)}
 				subtitle="Resolved ticket delta"
-				tone={report.totalComparison.ticketsDelta >= 0 ? "mint" : "coral"}
+				tone={report.totalComparison.ticketsDelta >= 0
+					? "mint"
+					: "coral"}
 			/>
 		</section>
 
 		{#if report.comparisons.length === 0}
-			<section class="surface-card mt-6 rounded-2xl px-6 py-16 text-center">
+			<section
+				class="surface-card mt-6 rounded-2xl px-6 py-16 text-center"
+			>
 				<p class="text-lg font-bold text-white">No resolved tickets</p>
 				<p class="mt-2 text-sm text-muted">
 					Jira found no resolved work in either selected period.
@@ -371,10 +392,14 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 					</div>
 					<div class="flex gap-4 text-xs font-semibold text-muted">
 						<span
-							><i class="mr-1.5 inline-block size-2 rounded-full bg-muted"></i>
+							><i
+								class="mr-1.5 inline-block size-2 rounded-full bg-muted"
+							></i>
 							{baselineLabel || "Baseline"}</span
 						><span
-							><i class="mr-1.5 inline-block size-2 rounded-full bg-violet"></i>
+							><i
+								class="mr-1.5 inline-block size-2 rounded-full bg-violet"
+							></i>
 							{comparisonLabel || "Comparison"}</span
 						>
 					</div>
@@ -388,13 +413,17 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 								{comparison.developer}
 							</p>
 							<div class="space-y-1.5">
-								<div class="h-2 overflow-hidden rounded-full bg-line/70">
+								<div
+									class="h-2 overflow-hidden rounded-full bg-line/70"
+								>
 									<div
 										class="h-full rounded-full bg-muted"
 										style={`width: ${(comparison.baselinePoints / maximumChartPoints) * 100}%`}
 									></div>
 								</div>
-								<div class="h-2 overflow-hidden rounded-full bg-line/70">
+								<div
+									class="h-2 overflow-hidden rounded-full bg-line/70"
+								>
 									<div
 										class="h-full rounded-full bg-violet"
 										style={`width: ${(comparison.comparisonPoints / maximumChartPoints) * 100}%`}
@@ -419,32 +448,54 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 					</p>
 				</div>
 				<div class="overflow-x-auto">
-					<table class="w-full min-w-[46rem] border-collapse text-left">
+					<table
+						class="w-full min-w-[46rem] border-collapse text-left"
+					>
 						<thead
 							class="bg-canvas/35 text-[0.67rem] uppercase tracking-[0.1em] text-muted"
 						>
 							<tr>
-								<th class="px-6 py-3 font-semibold">Developer</th>
-								<th class="px-4 py-3 text-right font-semibold">Baseline</th>
-								<th class="px-4 py-3 text-right font-semibold">Comparison</th>
-								<th class="px-4 py-3 text-right font-semibold">Points Δ</th>
-								<th class="px-4 py-3 text-right font-semibold">Change</th>
-								<th class="px-6 py-3 text-right font-semibold">Tickets Δ</th>
+								<th class="px-6 py-3 font-semibold"
+									>Developer</th
+								>
+								<th class="px-4 py-3 text-right font-semibold"
+									>Baseline</th
+								>
+								<th class="px-4 py-3 text-right font-semibold"
+									>Comparison</th
+								>
+								<th class="px-4 py-3 text-right font-semibold"
+									>Points Δ</th
+								>
+								<th class="px-4 py-3 text-right font-semibold"
+									>Change</th
+								>
+								<th class="px-6 py-3 text-right font-semibold"
+									>Tickets Δ</th
+								>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-line/55">
 							{#each report.comparisons as comparison (comparison.developer)}
 								<tr class="hover:bg-panel-soft/45">
-									<td class="px-6 py-4 font-semibold text-ice">
+									<td
+										class="px-6 py-4 font-semibold text-ice"
+									>
 										{comparison.developer}
 									</td>
-									<td class="metric-value px-4 py-4 text-right text-muted">
-										{formatNumber(comparison.baselinePoints)}
+									<td
+										class="metric-value px-4 py-4 text-right text-muted"
+									>
+										{formatNumber(
+											comparison.baselinePoints,
+										)}
 									</td>
 									<td
 										class="metric-value px-4 py-4 text-right font-bold text-violet"
 									>
-										{formatNumber(comparison.comparisonPoints)}
+										{formatNumber(
+											comparison.comparisonPoints,
+										)}
 									</td>
 									<td
 										class={`metric-value px-4 py-4 text-right font-bold ${deltaClass(comparison.pointsDelta)}`}
@@ -472,11 +523,15 @@ async function runComparison(event?: SubmitEvent): Promise<void> {
 		<section
 			class="mt-8 rounded-2xl border border-dashed border-line px-6 py-16 text-center"
 		>
-			<p class="font-mono text-3xl text-violet/70" aria-hidden="true">◫</p>
-			<h2 class="mt-4 text-lg font-bold text-white">Choose two periods</h2>
+			<p class="font-mono text-3xl text-violet/70" aria-hidden="true">
+				◫
+			</p>
+			<h2 class="mt-4 text-lg font-bold text-white">
+				Choose two periods
+			</h2>
 			<p class="mt-2 text-sm text-muted">
-				The default windows compare the previous 30 days with the most recent 30
-				days.
+				The default windows compare the previous 30 days with the most
+				recent 30 days.
 			</p>
 		</section>
 	{/if}

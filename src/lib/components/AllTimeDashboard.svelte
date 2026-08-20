@@ -26,6 +26,19 @@ let qualityAssuranceEntries = $state<AllTimeLeaderboardEntry[]>([]);
 let isLoading = $state(true);
 let hasReport = $state(false);
 let errorMessage = $state("");
+const currentYear = new Date().getFullYear();
+const earliestSelectableYear = 2002;
+const selectableYears = Array.from(
+	{ length: currentYear - earliestSelectableYear + 1 },
+	(_, index) => currentYear - index,
+);
+let selectedPeriod = $state(String(currentYear));
+let selectedYear = $derived(
+	selectedPeriod === "all" ? null : Number(selectedPeriod),
+);
+let selectedPeriodLabel = $derived(
+	selectedPeriod === "all" ? "All time" : selectedPeriod,
+);
 
 let developerTotals = $derived(totalAllTimeLeaderboard(developerEntries));
 let qualityAssuranceTotals = $derived(
@@ -42,18 +55,21 @@ function formatNumber(value: number): string {
 
 async function refreshReport(): Promise<void> {
 	isLoading = true;
+	hasReport = false;
 	errorMessage = "";
 	try {
 		const [developerIssues, qualityAssuranceIssues] = await Promise.all([
 			loadDevelopmentAllTimeIssues(
 				configuration.boardIdentifier,
 				configuration.statusMapping.done,
+				selectedYear,
 				configuration.fieldMapping,
 			),
 			configuration.qualityAssurance
 				? loadQualityAssuranceAllTimeIssues(
 						configuration.qualityAssurance.boardIdentifier,
 						configuration.qualityAssurance.statusMapping.done,
+						selectedYear,
 						configuration.qualityAssurance.fieldMapping,
 					)
 				: Promise.resolve([]),
@@ -73,7 +89,7 @@ async function refreshReport(): Promise<void> {
 		errorMessage =
 			error instanceof Error
 				? error.message
-				: "All-time performance could not be loaded.";
+				: "Leaderboard performance could not be loaded.";
 	} finally {
 		isLoading = false;
 	}
@@ -87,27 +103,41 @@ onMount(refreshReport);
 		class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
 	>
 		<div>
-			<p class="eyebrow">Lifetime achievements</p>
 			<h1
 				class="mt-3 text-3xl font-bold tracking-[-0.04em] text-white sm:text-4xl"
 			>
-				All-time leaderboard
+				{selectedPeriod === "all" ? "All-time" : selectedPeriod}
+				leaderboard
 			</h1>
-			<p class="mt-2 max-w-3xl text-sm leading-6 text-muted">
-				Completed work across the configured development and QA boards,
-				independent of sprint selection. Only tickets currently in each board’s
-				mapped Done status are counted.
-			</p>
 		</div>
-		<button
-			class="secondary-button shrink-0"
-			type="button"
-			onclick={refreshReport}
-			disabled={isLoading}
-		>
-			<span class:is-rotating={isLoading} aria-hidden="true">↻</span>
-			Refresh Jira
-		</button>
+		<div class="flex items-end gap-3">
+			<label class="block">
+				<span
+					class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted"
+					>Period</span
+				>
+				<select
+					class="field-control min-w-32"
+					bind:value={selectedPeriod}
+					onchange={refreshReport}
+					disabled={isLoading}
+				>
+					<option value="all">All time</option>
+					{#each selectableYears as year (year)}
+						<option value={String(year)}>{year}</option>
+					{/each}
+				</select>
+			</label>
+			<button
+				class="secondary-button shrink-0"
+				type="button"
+				onclick={refreshReport}
+				disabled={isLoading}
+			>
+				<span class:is-rotating={isLoading} aria-hidden="true">↻</span>
+				Refresh Jira
+			</button>
+		</div>
 	</header>
 
 	{#if errorMessage}
@@ -117,13 +147,15 @@ onMount(refreshReport);
 	{/if}
 
 	{#if isLoading}
-		<LoadingState message="Calculating all-time performance…" />
+		<LoadingState
+			message={`Calculating ${selectedPeriodLabel.toLowerCase()} performance…`}
+		/>
 	{:else if hasReport}
 		<section class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 			<MetricCard
 				label="Developer points"
 				value={formatNumber(developerTotals.completedPoints)}
-				subtitle={`${developerEntries.length} ranked developers`}
+				subtitle={`${developerEntries.length} ranked developers · ${selectedPeriodLabel}`}
 				tone="mint"
 			/>
 			<MetricCard
@@ -137,7 +169,7 @@ onMount(refreshReport);
 					? formatNumber(qualityAssuranceTotals.completedPoints)
 					: "—"}
 				subtitle={configuration.qualityAssurance
-					? `${qualityAssuranceEntries.length} ranked testers`
+					? `${qualityAssuranceEntries.length} ranked testers · ${selectedPeriodLabel}`
 					: "QA board not configured"}
 				tone="violet"
 			/>
@@ -146,14 +178,15 @@ onMount(refreshReport);
 				value={configuration.qualityAssurance
 					? String(qualityAssuranceTotals.completedTickets)
 					: "—"}
-				subtitle={configuration.qualityAssurance?.boardName ?? "Set up in Settings"}
+				subtitle={configuration.qualityAssurance?.boardName ??
+					"Set up in Settings"}
 			/>
 		</section>
 
 		<div class="mt-6 grid items-start gap-6 xl:grid-cols-2">
 			<AllTimeLeaderboard
 				title="Developer leaderboard"
-				description={`Ranked by Done points, then Done ticket count · ${configuration.boardName}`}
+				description={`Ranked by Done points, then Done ticket count · ${selectedPeriodLabel} · ${configuration.boardName}`}
 				contributorLabel="Developer"
 				entries={developerEntries}
 				tone="mint"
@@ -162,7 +195,7 @@ onMount(refreshReport);
 			{#if configuration.qualityAssurance}
 				<AllTimeLeaderboard
 					title="QA leaderboard"
-					description={`Ranked by Done points, then Done ticket count · ${configuration.qualityAssurance.boardName}`}
+					description={`Ranked by Done points, then Done ticket count · ${selectedPeriodLabel} · ${configuration.qualityAssurance.boardName}`}
 					contributorLabel="Tester"
 					entries={qualityAssuranceEntries}
 					tone="violet"
@@ -171,8 +204,8 @@ onMount(refreshReport);
 				<section class="surface-card rounded-2xl px-6 py-16 text-center">
 					<p class="text-lg font-bold text-white">QA board not configured</p>
 					<p class="mt-2 text-sm leading-6 text-muted">
-						Add a QA board and map its Tester field in Settings to enable the
-						all-time QA leaderboard.
+						Add a QA board and map its Tester field in Settings to enable the QA
+						leaderboard.
 					</p>
 				</section>
 			{/if}
