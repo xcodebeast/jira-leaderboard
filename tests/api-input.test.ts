@@ -1,7 +1,22 @@
 import { describe, expect, test } from "bun:test";
-import { optionalCalendarYear } from "../src/lib/server/client-input";
+import {
+	leaderboardScope,
+	optionalCalendarYear,
+} from "../src/lib/server/client-input";
 
 describe("API input validation", () => {
+	test("defaults leaderboard scope to the configured board", () => {
+		expect(leaderboardScope({}, "scope")).toBe("board");
+		expect(leaderboardScope({ scope: "board" }, "scope")).toBe("board");
+		expect(leaderboardScope({ scope: "global" }, "scope")).toBe("global");
+	});
+
+	test("rejects an unknown leaderboard scope", () => {
+		expect(() => leaderboardScope({ scope: "project" }, "scope")).toThrow(
+			"Select a valid leaderboard scope.",
+		);
+	});
+
 	test("defaults a missing leaderboard year to the current year", () => {
 		expect(optionalCalendarYear({}, "year", "leaderboard year")).toBe(
 			new Date().getUTCFullYear(),

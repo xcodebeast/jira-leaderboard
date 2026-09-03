@@ -7,6 +7,7 @@
 	import type { AppConfiguration } from "../browser/configuration";
 	import {
 		type AllTimeLeaderboardEntry,
+		type LeaderboardScope,
 		summarizeDeveloperAllTimeIssues,
 		summarizeQualityAssuranceAllTimeIssues,
 		totalAllTimeLeaderboard,
@@ -31,7 +32,7 @@
 	let developerEntries = $state<AllTimeLeaderboardEntry[]>([]);
 	let qualityAssuranceEntries = $state<AllTimeLeaderboardEntry[]>([]);
 	let isLoading = $state(true);
-	let reportPeriod = $state<string | null>(null);
+	let reportSelection = $state<string | null>(null);
 	let errorMessage = $state("");
 	const currentYear = new Date().getFullYear();
 	const earliestSelectableYear = 2002;
@@ -39,6 +40,7 @@
 		{ length: currentYear - earliestSelectableYear + 1 },
 		(_, index) => currentYear - index,
 	);
+	let selectedScope = $state<LeaderboardScope>("board");
 	let selectedPeriod = $state(String(currentYear));
 	let selectedYear = $derived(
 		selectedPeriod === "all" ? null : Number(selectedPeriod),
@@ -46,14 +48,25 @@
 	let selectedPeriodLabel = $derived(
 		selectedPeriod === "all" ? "All time" : selectedPeriod,
 	);
-	let hasCurrentReport = $derived(reportPeriod === selectedPeriod);
+	let selectedReportKey = $derived(`${selectedScope}:${selectedPeriod}`);
+	let hasCurrentReport = $derived(reportSelection === selectedReportKey);
+	let developerSourceLabel = $derived(
+		selectedScope === "global"
+			? "All accessible Jira projects"
+			: configuration.boardName,
+	);
+	let qualityAssuranceSourceLabel = $derived(
+		selectedScope === "global"
+			? "All accessible Jira projects"
+			: (configuration.qualityAssurance?.boardName ?? "Set up in Settings"),
+	);
 	let developerTotals = $derived(totalAllTimeLeaderboard(developerEntries));
 	let qualityAssuranceTotals = $derived(
 		totalAllTimeLeaderboard(qualityAssuranceEntries),
 	);
 
 	async function refreshReport(): Promise<void> {
-		const period = selectedPeriod;
+		const reportKey = selectedReportKey;
 		isLoading = true;
 		errorMessage = "";
 		try {
@@ -61,6 +74,7 @@
 				[
 					loadDevelopmentAllTimeIssues(
 						configuration.boardIdentifier,
+						selectedScope,
 						configuration.statusMapping.done,
 						selectedYear,
 						configuration.fieldMapping,
@@ -68,6 +82,7 @@
 					configuration.qualityAssurance
 						? loadQualityAssuranceAllTimeIssues(
 								configuration.qualityAssurance.boardIdentifier,
+								selectedScope,
 								configuration.qualityAssurance.statusMapping
 									.done,
 								selectedYear,
@@ -86,7 +101,7 @@
 						configuration.qualityAssurance.statusMapping.done,
 					)
 				: [];
-			reportPeriod = period;
+			reportSelection = reportKey;
 		} catch (error) {
 			errorMessage =
 				error instanceof Error
@@ -111,10 +126,21 @@
 				class="display-title mt-3 text-4xl leading-none text-ice sm:text-5xl"
 			>
 				{selectedPeriod === "all" ? "All-time" : selectedPeriod}
+				{selectedScope === "global" ? "global" : ""}
 				leaderboard
 			</h1>
 		</div>
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+			<Field label="Scope" compact class="min-w-48">
+				<Select
+					bind:value={selectedScope}
+					onchange={refreshReport}
+					disabled={isLoading}
+				>
+					<option value="board">Current boards</option>
+					<option value="global">All Jira projects</option>
+				</Select>
+			</Field>
 			<Field label="Season" compact class="min-w-36">
 				<Select
 					bind:value={selectedPeriod}
@@ -162,7 +188,7 @@
 			<MetricCard
 				label="Developer tickets"
 				value={String(developerTotals.completedTickets)}
-				subtitle={configuration.boardName}
+				subtitle={developerSourceLabel}
 				context="Completed"
 			/>
 			<MetricCard
@@ -181,8 +207,7 @@
 				value={configuration.qualityAssurance
 					? String(qualityAssuranceTotals.completedTickets)
 					: "—"}
-				subtitle={configuration.qualityAssurance?.boardName ??
-					"Set up in Settings"}
+				subtitle={qualityAssuranceSourceLabel}
 				tone="info"
 				context="Completed"
 			/>
@@ -191,7 +216,7 @@
 		<div class="mt-6 grid items-start gap-6 xl:grid-cols-2">
 			<AllTimeLeaderboard
 				title="Developer league"
-				description={`Done points, then Done tickets · ${selectedPeriodLabel} · ${configuration.boardName}`}
+				description={`Done points, then Done tickets · ${selectedPeriodLabel} · ${developerSourceLabel}`}
 				contributorLabel="Developer"
 				entries={developerEntries}
 				tone="success"
@@ -200,7 +225,7 @@
 			{#if configuration.qualityAssurance}
 				<AllTimeLeaderboard
 					title="QA league"
-					description={`Done points, then Done tickets · ${selectedPeriodLabel} · ${configuration.qualityAssurance.boardName}`}
+					description={`Done points, then Done tickets · ${selectedPeriodLabel} · ${qualityAssuranceSourceLabel}`}
 					contributorLabel="Tester"
 					entries={qualityAssuranceEntries}
 					tone="info"

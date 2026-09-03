@@ -1,6 +1,7 @@
 import {
 	apiErrorResponse,
 	apiJson,
+	leaderboardScope,
 	optionalCalendarYear,
 	readJsonObject,
 	requiredPositiveInteger,
@@ -26,17 +27,24 @@ export const POST: RequestHandler = async ({ cookies, request }) => {
 			200,
 		);
 		const year = optionalCalendarYear(payload, "year", "leaderboard year");
+		const scope = leaderboardScope(payload, "scope");
 		const fieldMapping = parseFieldMapping(payload);
 		const client = new JiraClient(requireCredentialSession(cookies));
+		const issues =
+			scope === "global"
+				? await client.developmentGlobalDoneIssues(
+						doneStatus,
+						year,
+						fieldMapping,
+					)
+				: await client.developmentBoardDoneIssues(
+						boardIdentifier,
+						doneStatus,
+						year,
+						fieldMapping,
+					);
 
-		return apiJson({
-			issues: await client.developmentBoardDoneIssues(
-				boardIdentifier,
-				doneStatus,
-				year,
-				fieldMapping,
-			),
-		});
+		return apiJson({ issues });
 	} catch (error) {
 		return apiErrorResponse(error);
 	}

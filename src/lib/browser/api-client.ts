@@ -1,3 +1,4 @@
+import type { LeaderboardScope } from "../domain/all-time-performance";
 import type {
 	JiraBoard,
 	JiraFieldMapping,
@@ -184,6 +185,7 @@ export async function loadQualityAssuranceSprintIssues(
 
 export async function loadDevelopmentAllTimeIssues(
 	boardIdentifier: number,
+	scope: LeaderboardScope,
 	doneStatus: string,
 	year: number | null,
 	fieldMapping: JiraFieldMapping,
@@ -192,7 +194,7 @@ export async function loadDevelopmentAllTimeIssues(
 		"/api/jira/development-all-time-issues",
 		{
 			method: "POST",
-			body: { boardIdentifier, doneStatus, year, fieldMapping },
+			body: { boardIdentifier, scope, doneStatus, year, fieldMapping },
 		},
 	);
 	return response.issues;
@@ -200,6 +202,7 @@ export async function loadDevelopmentAllTimeIssues(
 
 export async function loadQualityAssuranceAllTimeIssues(
 	boardIdentifier: number,
+	scope: LeaderboardScope,
 	doneStatus: string,
 	year: number | null,
 	fieldMapping: QualityAssuranceFieldMapping,
@@ -208,7 +211,7 @@ export async function loadQualityAssuranceAllTimeIssues(
 		"/api/jira/quality-assurance-all-time-issues",
 		{
 			method: "POST",
-			body: { boardIdentifier, doneStatus, year, fieldMapping },
+			body: { boardIdentifier, scope, doneStatus, year, fieldMapping },
 		},
 	);
 	return response.issues;

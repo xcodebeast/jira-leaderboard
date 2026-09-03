@@ -125,14 +125,14 @@ describe("all-time performance", () => {
 	});
 
 	test("scopes the Done query to a selected calendar year", () => {
-		expect(buildDoneIssuesQuery("Done", 2026)).toBe(
-			'status = "Done" AND resolved >= "2026-01-01" AND resolved < "2027-01-01"',
+		expect(buildDoneIssuesQuery("Done", 2026, "customfield_20400")).toBe(
+			'status = "Done" AND cf[20400] is not EMPTY AND resolved >= "2026-01-01" AND resolved < "2027-01-01"',
 		);
 	});
 
 	test("uses an unbounded query for all time and safely escapes the status", () => {
-		expect(buildDoneIssuesQuery('Done \\ "verified"', null)).toBe(
-			'status = "Done \\\\ \\"verified\\""',
+		expect(buildDoneIssuesQuery('Done \\ "verified"', null, "assignee")).toBe(
+			'status = "Done \\\\ \\"verified\\"" AND assignee is not EMPTY',
 		);
 	});
 });

@@ -11,6 +11,8 @@ export interface AllTimeLeaderboardEntry {
 	completedTickets: number;
 }
 
+export type LeaderboardScope = "board" | "global";
+
 interface CompletedIssue {
 	statusName: string | null;
 	storyPoints: number | null;
@@ -104,14 +106,28 @@ export function totalAllTimeLeaderboard(entries: AllTimeLeaderboardEntry[]): {
 export function buildDoneIssuesQuery(
 	doneStatus: string,
 	year: number | null,
+	contributorFieldIdentifier: string,
 ): string {
 	const escapedStatus = doneStatus
 		.replaceAll("\\", "\\\\")
 		.replaceAll('"', '\\"');
-	const statusCondition = `status = "${escapedStatus}"`;
+	const customFieldMatch = /^customfield_(\d+)$/.exec(
+		contributorFieldIdentifier,
+	);
+	const contributorFieldReference = customFieldMatch
+		? `cf[${customFieldMatch[1]}]`
+		: contributorFieldIdentifier;
+	const conditions = [
+		`status = "${escapedStatus}"`,
+		`${contributorFieldReference} is not EMPTY`,
+	];
 	if (year === null) {
-		return statusCondition;
+		return conditions.join(" AND ");
 	}
 
-	return `${statusCondition} AND resolved >= "${year}-01-01" AND resolved < "${year + 1}-01-01"`;
+	conditions.push(
+		`resolved >= "${year}-01-01"`,
+		`resolved < "${year + 1}-01-01"`,
+	);
+	return conditions.join(" AND ");
 }

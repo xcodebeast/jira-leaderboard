@@ -3,7 +3,11 @@ import { ClientInputError } from "./client-input";
 import { JiraRequestError } from "./jira-client";
 import { SessionConfigurationError, SessionRequiredError } from "./session";
 
-export { ClientInputError, optionalCalendarYear } from "./client-input";
+export {
+	ClientInputError,
+	leaderboardScope,
+	optionalCalendarYear,
+} from "./client-input";
 
 export function apiJson(data: unknown, status = 200): Response {
 	return json(data, {

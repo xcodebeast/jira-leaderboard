@@ -699,8 +699,29 @@ export class JiraClient {
 		return this.boardIssues(
 			boardIdentifier,
 			this.requestedIssueFields(fieldMapping, false),
-			buildDoneIssuesQuery(doneStatus, year),
+			buildDoneIssuesQuery(
+				doneStatus,
+				year,
+				fieldMapping.developerFieldIdentifier,
+			),
 			"development all-time issue page",
+			(issue) => normalizeJiraIssue(issue, fieldMapping),
+		);
+	}
+
+	async developmentGlobalDoneIssues(
+		doneStatus: string,
+		year: number | null,
+		fieldMapping: JiraFieldMapping,
+	): Promise<JiraIssue[]> {
+		return this.searchIssues(
+			buildDoneIssuesQuery(
+				doneStatus,
+				year,
+				fieldMapping.developerFieldIdentifier,
+			),
+			this.requestedIssueFields(fieldMapping, false),
+			"global development issue page",
 			(issue) => normalizeJiraIssue(issue, fieldMapping),
 		);
 	}
@@ -720,8 +741,35 @@ export class JiraClient {
 		return this.boardIssues(
 			boardIdentifier,
 			requestedFields,
-			buildDoneIssuesQuery(doneStatus, year),
+			buildDoneIssuesQuery(
+				doneStatus,
+				year,
+				fieldMapping.testerFieldIdentifier,
+			),
 			"quality assurance all-time issue page",
+			(issue) => normalizeJiraQualityAssuranceIssue(issue, fieldMapping),
+		);
+	}
+
+	async qualityAssuranceGlobalDoneIssues(
+		doneStatus: string,
+		year: number | null,
+		fieldMapping: QualityAssuranceFieldMapping,
+	): Promise<JiraQualityAssuranceIssue[]> {
+		const requestedFields = [
+			"summary",
+			"status",
+			fieldMapping.storyPointsFieldIdentifier,
+			fieldMapping.testerFieldIdentifier,
+		].sort();
+		return this.searchIssues(
+			buildDoneIssuesQuery(
+				doneStatus,
+				year,
+				fieldMapping.testerFieldIdentifier,
+			),
+			requestedFields,
+			"global quality assurance issue page",
 			(issue) => normalizeJiraQualityAssuranceIssue(issue, fieldMapping),
 		);
 	}
@@ -731,12 +779,25 @@ export class JiraClient {
 		range: ResolvedDateRange,
 		fieldMapping: JiraFieldMapping,
 	): Promise<JiraIssue[]> {
-		const requestedFields = this.requestedIssueFields(fieldMapping, true);
-		const issues: JiraIssue[] = [];
+		return this.searchIssues(
+			buildResolvedIssuesQuery(scopeQuery, range),
+			this.requestedIssueFields(fieldMapping, true),
+			"resolved issue page",
+			(issue) => normalizeJiraIssue(issue, fieldMapping),
+		);
+	}
+
+	private async searchIssues<Issue>(
+		jiraQuery: string,
+		requestedFields: string[],
+		pageDescription: string,
+		normalizeIssue: (value: unknown) => Issue,
+	): Promise<Issue[]> {
+		const issues: Issue[] = [];
 		let nextPageToken: string | null = null;
 		for (let pageNumber = 0; pageNumber < 500; pageNumber += 1) {
 			const body: JsonObject = {
-				jql: buildResolvedIssuesQuery(scopeQuery, range),
+				jql: jiraQuery,
 				fields: requestedFields,
 				fieldsByKeys: false,
 				maxResults: 100,
@@ -746,11 +807,9 @@ export class JiraClient {
 			}
 			const page = requiredObject(
 				await this.request("/rest/api/3/search/jql", { method: "POST", body }),
-				"resolved issue page",
+				pageDescription,
 			);
-			const pageIssues = arrayValue(page.issues).map((issue) =>
-				normalizeJiraIssue(issue, fieldMapping),
-			);
+			const pageIssues = arrayValue(page.issues).map(normalizeIssue);
 			issues.push(...pageIssues);
 			nextPageToken = stringValue(page.nextPageToken);
 			if (
@@ -764,7 +823,7 @@ export class JiraClient {
 
 		throw new JiraRequestError(
 			502,
-			"Jira returned too many resolved issue pages.",
+			"Jira returned too many search result pages.",
 		);
 	}
 
