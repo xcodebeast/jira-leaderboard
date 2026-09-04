@@ -15,3 +15,7 @@ export function originMatchesRequestHost(
 		return false;
 	}
 }
+
+export function isShareSnapshotPath(pathname: string): boolean {
+	return pathname === "/share" || pathname === "/share/";
+}

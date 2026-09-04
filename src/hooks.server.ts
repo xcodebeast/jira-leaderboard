@@ -1,5 +1,8 @@
 import type { Handle } from "@sveltejs/kit";
-import { originMatchesRequestHost } from "$lib/server/request-security";
+import {
+	isShareSnapshotPath,
+	originMatchesRequestHost,
+} from "$lib/server/request-security";
 
 const unsafeMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -49,6 +52,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 	);
 	if (event.url.pathname.startsWith("/api/")) {
 		response.headers.set("Cache-Control", "no-store");
+	}
+	if (isShareSnapshotPath(event.url.pathname)) {
+		response.headers.set("Cache-Control", "no-store");
+		response.headers.set("Referrer-Policy", "no-referrer");
+		response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
 	}
 
 	return response;

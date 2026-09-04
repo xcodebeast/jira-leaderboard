@@ -1,31 +1,26 @@
 <script lang="ts">
-import type { JiraSprint, SprintStatusMapping } from "../domain/jira";
 import {
 	type DeveloperSprintComparison,
 	type DeveloperSprintSummary,
 	projectedSprintPoints,
 } from "../domain/sprint-performance";
 import { formatDelta, formatNumber } from "../presentation/format";
+import SprintTicketLinks from "./SprintTicketLinks.svelte";
 import Avatar from "./ui/Avatar.svelte";
 import Card from "./ui/Card.svelte";
 import EmptyState from "./ui/EmptyState.svelte";
 import RankBadge from "./ui/RankBadge.svelte";
 import Table from "./ui/Table.svelte";
-import SprintTicketLinks from "./SprintTicketLinks.svelte";
 
 interface Properties {
-	boardName: string;
-	jiraSiteUrl: string;
-	statusMapping: SprintStatusMapping;
+	jiraSiteUrl?: string | null;
 	summaries: DeveloperSprintSummary[];
 	comparisons: DeveloperSprintComparison[];
-	comparisonSprint: JiraSprint | null;
+	comparisonSprint: { name: string } | null;
 }
 
 let {
-	boardName,
-	jiraSiteUrl,
-	statusMapping,
+	jiraSiteUrl = null,
 	summaries,
 	comparisons,
 	comparisonSprint,

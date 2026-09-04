@@ -1,58 +1,32 @@
 <script lang="ts">
-import type { QualityAssuranceConfiguration } from "../browser/configuration";
 import {
 	type TesterSprintSummary,
 	totalQualityAssuranceTicketCount,
 } from "../domain/quality-assurance-performance";
 import { formatNumber } from "../presentation/format";
+import SprintTicketLinks from "./SprintTicketLinks.svelte";
 import Avatar from "./ui/Avatar.svelte";
 import Card from "./ui/Card.svelte";
 import EmptyState from "./ui/EmptyState.svelte";
-import MetricCard from "./ui/MetricCard.svelte";
 import RankBadge from "./ui/RankBadge.svelte";
 import Table from "./ui/Table.svelte";
-import SprintTicketLinks from "./SprintTicketLinks.svelte";
 
 interface Properties {
-	configuration: QualityAssuranceConfiguration;
-	jiraSiteUrl: string;
+	jiraSiteUrl?: string | null;
 	summaries: TesterSprintSummary[];
 }
 
-let { configuration, jiraSiteUrl, summaries }: Properties = $props();
-let totalDoneStoryPoints = $derived(
-	summaries.reduce((total, summary) => total + summary.doneStoryPoints, 0),
-);
-let totalDoneTickets = $derived(
-	summaries.reduce((total, summary) => total + summary.doneTicketCount, 0),
-);
-let totalReadyStoryPoints = $derived(
-	summaries.reduce(
-		(total, summary) => total + summary.readyForQualityAssuranceStoryPoints,
-		0,
-	),
-);
-let totalReadyTickets = $derived(
-	summaries.reduce(
-		(total, summary) => total + summary.readyForQualityAssuranceTicketCount,
-		0,
-	),
-);
+let { jiraSiteUrl = null, summaries }: Properties = $props();
 </script>
 
 <Card class="overflow-hidden rounded-[1.2rem]">
 	<div
 		class="flex flex-col gap-4 border-b border-line/70 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"
 	>
-		<div>
-			<div class="flex flex-wrap items-center gap-2">
-				<h2 class="text-lg font-extrabold text-ice">
-					Quality assurance scoreboard
-				</h2>
-			</div>
-			<p class="mt-1 text-xs leading-5 text-muted">
-				Ranked by cleared points, cleared ticket count, then ready points.
-			</p>
+		<div class="flex flex-wrap items-center gap-2">
+			<h2 class="text-lg font-extrabold text-ice">
+				Quality assurance scoreboard
+			</h2>
 		</div>
 		<div class="flex flex-wrap gap-3 text-[0.68rem] font-bold text-muted">
 			<span

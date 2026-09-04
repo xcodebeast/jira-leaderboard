@@ -12,6 +12,7 @@ Jira Leaderboard is a simple, stateless web dashboard for comparing sprint resul
 - Compares sprint progress by developer
 - Optionally adds a QA board scoped to the same development sprint, tracking the `Tester` field
 - Can filter by date range, developer, project, or advanced JQL
+- Creates frozen, read-only report links that recipients can open without signing in
 
 ## Privacy and Security
 
@@ -19,6 +20,8 @@ Jira Leaderboard is a simple, stateless web dashboard for comparing sprint resul
 - Preferences (board/QA board/status/etc.) save in your browser's localStorage.
 - Jira site, email, and API token are encrypted using AES-256 into a secure cookie.
 - All APIs are read-only; the server cannot change data in Jira.
+- Shared snapshots are compressed and encrypted entirely in the browser, then stored in the URL fragment. The server never receives or stores the report or its decryption key.
+- Anyone with a complete snapshot link can read and forward its frozen report. Snapshot links cannot be revoked or updated, and large reports may exceed portable URL limits.
 
 ## Quick Start (Local with Bun)
 

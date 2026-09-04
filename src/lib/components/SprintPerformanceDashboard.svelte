@@ -28,8 +28,13 @@ import {
 	summarizeSprintIssues,
 } from "../domain/sprint-performance";
 import { formatNumber, sprintDateDescription } from "../presentation/format";
+import {
+	SHARED_SNAPSHOT_VERSION,
+	type SharedSprintSnapshot,
+} from "../snapshot/schema";
 import DeveloperSprintScoreboard from "./DeveloperSprintScoreboard.svelte";
 import QualityAssuranceSprintScoreboard from "./QualityAssuranceSprintScoreboard.svelte";
+import ShareSnapshotButton from "./ShareSnapshotButton.svelte";
 import SprintSelector from "./SprintSelector.svelte";
 import Alert from "./ui/Alert.svelte";
 import Badge from "./ui/Badge.svelte";
@@ -156,6 +161,16 @@ let scoreboardSegments = $derived([
 			: "Add a QA board",
 	},
 ]);
+let sharedSnapshotIdentity = $derived(
+	[
+		selectedSprintIdentifier,
+		comparisonSprintIdentifier,
+		activeScoreboard,
+		developmentReportSprintIdentifier ?? "",
+		developmentReportComparisonIdentifier ?? "",
+		qualityAssuranceReportSprintIdentifier ?? "",
+	].join(":"),
+);
 
 function selectSuggestedComparison(): void {
 	if (!selectedSprint) {
@@ -392,6 +407,96 @@ function retrySprintHistory(): void {
 	}
 }
 
+function createSharedSprintSnapshot(): SharedSprintSnapshot {
+	const sprint = selectedSprint;
+	if (!sprint || !hasDevelopmentReport) {
+		throw new Error("The current sprint report is not ready to share.");
+	}
+
+	const currentComparisonSprint = hasDevelopmentComparison
+		? comparisonSprint
+		: null;
+	const currentQualityAssuranceConfiguration =
+		configuration.qualityAssurance && hasQualityAssuranceReport
+			? configuration.qualityAssurance
+			: null;
+
+	return {
+		version: SHARED_SNAPSHOT_VERSION,
+		kind: "sprint",
+		capturedAt: new Date().toISOString(),
+		report: {
+			sprint: {
+				name: sprint.name,
+				state: sprint.state === "active" ? "active" : "closed",
+				startDate: sprint.startDate,
+				endDate: sprint.endDate,
+			},
+			comparisonSprint: currentComparisonSprint
+				? {
+						name: currentComparisonSprint.name,
+						state:
+							currentComparisonSprint.state === "active" ? "active" : "closed",
+						startDate: currentComparisonSprint.startDate,
+						endDate: currentComparisonSprint.endDate,
+					}
+				: null,
+			activeScoreboard:
+				activeScoreboard === "qualityAssurance" &&
+				currentQualityAssuranceConfiguration
+					? "qualityAssurance"
+					: "development",
+			development: {
+				sourceLabel: configuration.boardName,
+				summaries: developmentSummaries.map((summary) => ({
+					developer: summary.developer,
+					donePoints: summary.donePoints,
+					qualityAssurancePoints: summary.qualityAssurancePoints,
+					readyForQualityAssurancePoints:
+						summary.readyForQualityAssurancePoints,
+					bounceCount: summary.bounceCount,
+					tickets: summary.tickets.map((ticket) => ({
+						issueKey: ticket.issueKey,
+						summary: ticket.summary,
+						status: ticket.status,
+					})),
+				})),
+				comparisons: currentComparisonSprint
+					? developmentComparisons.map((comparison) => ({
+							developer: comparison.developer,
+							donePointsDelta: comparison.donePointsDelta,
+							qualityAssurancePointsDelta:
+								comparison.qualityAssurancePointsDelta,
+							readyForQualityAssurancePointsDelta:
+								comparison.readyForQualityAssurancePointsDelta,
+							projectedPointsDelta: comparison.projectedPointsDelta,
+							bounceCountDelta: comparison.bounceCountDelta,
+						}))
+					: [],
+			},
+			qualityAssurance: currentQualityAssuranceConfiguration
+				? {
+						sourceLabel: currentQualityAssuranceConfiguration.boardName,
+						summaries: qualityAssuranceSummaries.map((summary) => ({
+							tester: summary.tester,
+							doneStoryPoints: summary.doneStoryPoints,
+							doneTicketCount: summary.doneTicketCount,
+							readyForQualityAssuranceStoryPoints:
+								summary.readyForQualityAssuranceStoryPoints,
+							readyForQualityAssuranceTicketCount:
+								summary.readyForQualityAssuranceTicketCount,
+							tickets: summary.tickets.map((ticket) => ({
+								issueKey: ticket.issueKey,
+								summary: ticket.summary,
+								status: ticket.status,
+							})),
+						})),
+					}
+				: null,
+		},
+	};
+}
+
 onMount(() => {
 	void loadSprintList();
 });
@@ -420,14 +525,21 @@ onMount(() => {
 				Sprint performance
 			</h1>
 		</div>
-		<Button
-			variant="secondary"
-			onclick={refreshReports}
-			loading={isRefreshing}
-			disabled={!selectedSprint || isLoadingSprints}
-		>
-			{isRefreshing ? "Updating scores…" : "Refresh scores"}
-		</Button>
+		<div class="flex flex-wrap items-center gap-3">
+			<ShareSnapshotButton
+				createSnapshot={createSharedSprintSnapshot}
+				snapshotIdentity={sharedSnapshotIdentity}
+				disabled={!selectedSprint || !hasDevelopmentReport || isRefreshing}
+			/>
+			<Button
+				variant="secondary"
+				onclick={refreshReports}
+				loading={isRefreshing}
+				disabled={!selectedSprint || isLoadingSprints}
+			>
+				{isRefreshing ? "Updating scores…" : "Refresh scores"}
+			</Button>
+		</div>
 	</header>
 
 	<Card class="mt-8 rounded-[1.2rem] p-5 sm:p-6" accent="brand">
@@ -580,9 +692,7 @@ onMount(() => {
 						<LoadingState message="Calculating development momentum…" />
 					{:else if hasDevelopmentReport}
 						<DeveloperSprintScoreboard
-							boardName={configuration.boardName}
 							{jiraSiteUrl}
-							statusMapping={configuration.statusMapping}
 							summaries={developmentSummaries}
 							comparisons={developmentComparisons}
 							comparisonSprint={hasDevelopmentComparison
@@ -595,7 +705,6 @@ onMount(() => {
 						<LoadingState message="Calculating QA throughput…" />
 					{:else if hasQualityAssuranceReport}
 						<QualityAssuranceSprintScoreboard
-							configuration={configuration.qualityAssurance}
 							{jiraSiteUrl}
 							summaries={qualityAssuranceSummaries}
 						/>

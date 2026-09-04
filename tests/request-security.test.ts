@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { originMatchesRequestHost } from "../src/lib/server/request-security";
+import {
+	isShareSnapshotPath,
+	originMatchesRequestHost,
+} from "../src/lib/server/request-security";
 
 describe("request origin validation", () => {
 	test("accepts a same-host browser origin", () => {
@@ -27,5 +30,15 @@ describe("request origin validation", () => {
 		expect(
 			originMatchesRequestHost("https://leaderboard.example.com", null),
 		).toBe(false);
+	});
+});
+
+describe("share snapshot path detection", () => {
+	test("accepts only the share route with an optional trailing slash", () => {
+		expect(isShareSnapshotPath("/share")).toBe(true);
+		expect(isShareSnapshotPath("/share/")).toBe(true);
+		expect(isShareSnapshotPath("/share/example")).toBe(false);
+		expect(isShareSnapshotPath("/shared")).toBe(false);
+		expect(isShareSnapshotPath("/")).toBe(false);
 	});
 });

@@ -9,6 +9,7 @@ export type IconName =
 	| "shield"
 	| "arrowRight"
 	| "check"
+	| "copy"
 	| "close";
 
 interface Properties {
@@ -74,6 +75,9 @@ let {
 		<path d="M5 12h14M14 7l5 5-5 5" />
 	{:else if name === "check"}
 		<path d="m5 12 4 4L19 6" />
+	{:else if name === "copy"}
+		<rect x="9" y="9" width="11" height="11" rx="2" />
+		<path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" />
 	{:else if name === "close"}
 		<path d="m6 6 12 12M18 6 6 18" />
 	{/if}
