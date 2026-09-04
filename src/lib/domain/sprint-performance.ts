@@ -1,3 +1,4 @@
+import { contributorIdentityKey } from "./contributor";
 import type { JiraIssue, SprintStatusMapping } from "./jira";
 
 export interface SprintTicket {
@@ -8,6 +9,7 @@ export interface SprintTicket {
 
 export interface DeveloperSprintSummary {
 	developer: string;
+	developerAccountIdentifier?: string;
 	donePoints: number;
 	qualityAssurancePoints: number;
 	readyForQualityAssurancePoints: number;
@@ -17,6 +19,7 @@ export interface DeveloperSprintSummary {
 
 export interface DeveloperSprintComparison {
 	developer: string;
+	developerAccountIdentifier?: string;
 	donePointsDelta: number;
 	qualityAssurancePointsDelta: number;
 	readyForQualityAssurancePointsDelta: number;
@@ -36,9 +39,13 @@ export function sprintTicketDisplay(ticket: SprintTicket): string {
 	return `${ticket.issueKey} (${ticket.status})`;
 }
 
-function emptySprintSummary(developer: string): DeveloperSprintSummary {
+function emptySprintSummary(
+	developer: string,
+	developerAccountIdentifier?: string,
+): DeveloperSprintSummary {
 	return {
 		developer,
+		...(developerAccountIdentifier ? { developerAccountIdentifier } : {}),
 		donePoints: 0,
 		qualityAssurancePoints: 0,
 		readyForQualityAssurancePoints: 0,
@@ -63,9 +70,13 @@ export function summarizeSprintIssues(
 			continue;
 		}
 
+		const developerKey = contributorIdentityKey(
+			issue.developer,
+			issue.developerAccountIdentifier,
+		);
 		const summary =
-			summariesByDeveloper.get(issue.developer) ??
-			emptySprintSummary(issue.developer);
+			summariesByDeveloper.get(developerKey) ??
+			emptySprintSummary(issue.developer, issue.developerAccountIdentifier);
 		const storyPoints = issue.storyPoints ?? 0;
 
 		if (issue.statusName === statuses.done) {
@@ -82,7 +93,7 @@ export function summarizeSprintIssues(
 			summary: issue.summary,
 			status: issue.statusName,
 		});
-		summariesByDeveloper.set(issue.developer, summary);
+		summariesByDeveloper.set(developerKey, summary);
 	}
 
 	return [...summariesByDeveloper.values()]
@@ -114,25 +125,49 @@ export function compareSprintSummaries(
 	previousSummaries: DeveloperSprintSummary[],
 ): DeveloperSprintComparison[] {
 	const currentByDeveloper = new Map(
-		currentSummaries.map((summary) => [summary.developer, summary]),
+		currentSummaries.map((summary) => [
+			contributorIdentityKey(
+				summary.developer,
+				summary.developerAccountIdentifier,
+			),
+			summary,
+		]),
 	);
 	const previousByDeveloper = new Map(
-		previousSummaries.map((summary) => [summary.developer, summary]),
+		previousSummaries.map((summary) => [
+			contributorIdentityKey(
+				summary.developer,
+				summary.developerAccountIdentifier,
+			),
+			summary,
+		]),
 	);
-	const developers = new Set([
+	const developerKeys = new Set([
 		...currentByDeveloper.keys(),
 		...previousByDeveloper.keys(),
 	]);
 
-	return [...developers]
-		.map((developer) => {
+	return [...developerKeys]
+		.map((developerKey) => {
+			const currentMatch = currentByDeveloper.get(developerKey);
+			const previousMatch = previousByDeveloper.get(developerKey);
+			const developer =
+				currentMatch?.developer ??
+				previousMatch?.developer ??
+				"Unknown developer";
+			const developerAccountIdentifier =
+				currentMatch?.developerAccountIdentifier ??
+				previousMatch?.developerAccountIdentifier;
 			const currentSummary =
-				currentByDeveloper.get(developer) ?? emptySprintSummary(developer);
+				currentMatch ??
+				emptySprintSummary(developer, developerAccountIdentifier);
 			const previousSummary =
-				previousByDeveloper.get(developer) ?? emptySprintSummary(developer);
+				previousMatch ??
+				emptySprintSummary(developer, developerAccountIdentifier);
 
 			return {
 				developer,
+				...(developerAccountIdentifier ? { developerAccountIdentifier } : {}),
 				donePointsDelta: currentSummary.donePoints - previousSummary.donePoints,
 				qualityAssurancePointsDelta:
 					currentSummary.qualityAssurancePoints -

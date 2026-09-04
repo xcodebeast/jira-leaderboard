@@ -28,6 +28,15 @@ export const POST: RequestHandler = async ({ cookies, request }) => {
 		);
 		const year = optionalCalendarYear(payload, "year", "leaderboard year");
 		const scope = leaderboardScope(payload, "scope");
+		const contributorAccountIdentifier =
+			payload.contributorAccountIdentifier == null
+				? null
+				: requiredString(
+						payload,
+						"contributorAccountIdentifier",
+						"contributor account",
+						256,
+					);
 		const fieldMapping = parseFieldMapping(payload);
 		const client = new JiraClient(requireCredentialSession(cookies));
 		const issues =
@@ -36,12 +45,14 @@ export const POST: RequestHandler = async ({ cookies, request }) => {
 						doneStatus,
 						year,
 						fieldMapping,
+						contributorAccountIdentifier,
 					)
 				: await client.developmentBoardDoneIssues(
 						boardIdentifier,
 						doneStatus,
 						year,
 						fieldMapping,
+						contributorAccountIdentifier,
 					);
 
 		return apiJson({ issues });

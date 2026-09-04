@@ -12,6 +12,10 @@ import {
 	summarizeQualityAssuranceAllTimeIssues,
 	totalAllTimeLeaderboard,
 } from "../domain/all-time-performance";
+import type {
+	ContributorProfileSelection,
+	ContributorReference,
+} from "../domain/contributor";
 import { formatNumber } from "../presentation/format";
 import {
 	SHARED_SNAPSHOT_VERSION,
@@ -31,9 +35,11 @@ import Select from "./ui/Select.svelte";
 interface Properties {
 	configuration: AppConfiguration;
 	onOpenSettings: () => void;
+	onOpenContributorProfile: (selection: ContributorProfileSelection) => void;
 }
 
-let { configuration, onOpenSettings }: Properties = $props();
+let { configuration, onOpenSettings, onOpenContributorProfile }: Properties =
+	$props();
 let developerEntries = $state<AllTimeLeaderboardEntry[]>([]);
 let qualityAssuranceEntries = $state<AllTimeLeaderboardEntry[]>([]);
 let isLoading = $state(true);
@@ -69,6 +75,26 @@ let developerTotals = $derived(totalAllTimeLeaderboard(developerEntries));
 let qualityAssuranceTotals = $derived(
 	totalAllTimeLeaderboard(qualityAssuranceEntries),
 );
+
+function openDevelopmentContributor(contributor: ContributorReference): void {
+	onOpenContributorProfile({
+		contributor,
+		role: "development",
+		scope: selectedScope,
+		sourceLabel: developerSourceLabel,
+	});
+}
+
+function openQualityAssuranceContributor(
+	contributor: ContributorReference,
+): void {
+	onOpenContributorProfile({
+		contributor,
+		role: "qualityAssurance",
+		scope: selectedScope,
+		sourceLabel: qualityAssuranceSourceLabel,
+	});
+}
 
 function createSharedSnapshot(): SharedLeaderboardSnapshot {
 	return {
@@ -258,6 +284,7 @@ onMount(() => {
 				contributorLabel="Developer"
 				entries={developerEntries}
 				tone="success"
+				onOpenContributor={openDevelopmentContributor}
 			/>
 
 			{#if configuration.qualityAssurance}
@@ -267,6 +294,7 @@ onMount(() => {
 					contributorLabel="Tester"
 					entries={qualityAssuranceEntries}
 					tone="info"
+					onOpenContributor={openQualityAssuranceContributor}
 				/>
 			{:else}
 				<Card class="rounded-[1.2rem]">

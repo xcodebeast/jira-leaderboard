@@ -7,6 +7,7 @@ export type IconName =
 	| "refresh"
 	| "spark"
 	| "shield"
+	| "arrowLeft"
 	| "arrowRight"
 	| "check"
 	| "copy"
@@ -71,6 +72,8 @@ let {
 	{:else if name === "shield"}
 		<path d="M12 3 5 6v5c0 4.6 2.8 8 7 10 4.2-2 7-5.4 7-10V6l-7-3Z" />
 		<path d="m9 12 2 2 4-4" />
+	{:else if name === "arrowLeft"}
+		<path d="M19 12H5M10 7l-5 5 5 5" />
 	{:else if name === "arrowRight"}
 		<path d="M5 12h14M14 7l5 5-5 5" />
 	{:else if name === "check"}

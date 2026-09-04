@@ -86,6 +86,34 @@ describe("all-time performance", () => {
 		]);
 	});
 
+	test("keeps renamed contributors together by Jira account identifier", () => {
+		const entries = summarizeDeveloperAllTimeIssues(
+			[
+				createDeveloperIssue({
+					storyPoints: 5,
+					developer: "Alex Old",
+					developerAccountIdentifier: "account-alex",
+				}),
+				createDeveloperIssue({
+					issueKey: "DEMO-2",
+					storyPoints: 8,
+					developer: "Alex New",
+					developerAccountIdentifier: "account-alex",
+				}),
+			],
+			"Done",
+		);
+
+		expect(entries).toEqual([
+			{
+				contributor: "Alex Old",
+				contributorAccountIdentifier: "account-alex",
+				completedPoints: 13,
+				completedTickets: 2,
+			},
+		]);
+	});
+
 	test("excludes unassigned contributors from both leaderboards and totals", () => {
 		const developerEntries = summarizeDeveloperAllTimeIssues(
 			[
@@ -133,6 +161,35 @@ describe("all-time performance", () => {
 	test("uses an unbounded query for all time and safely escapes the status", () => {
 		expect(buildDoneIssuesQuery('Done \\ "verified"', null, "assignee")).toBe(
 			'status = "Done \\\\ \\"verified\\"" AND assignee is not EMPTY',
+		);
+	});
+});
+
+describe("individual contributor queries", () => {
+	test("narrows all-time user-picker history to the selected account", () => {
+		expect(
+			buildDoneIssuesQuery("Done", null, "customfield_20400", "account-alex"),
+		).toBe(
+			'status = "Done" AND cf[20400] is not EMPTY AND cf[20400] = "account-alex"',
+		);
+	});
+
+	test("combines account and year filters while escaping query values", () => {
+		const query = buildDoneIssuesQuery(
+			"Done",
+			2026,
+			"assignee",
+			'account\\"name',
+		);
+		expect(query).toContain('assignee = "account\\\\\\"name"');
+		expect(query).toContain(
+			'resolved >= "2026-01-01" AND resolved < "2027-01-01"',
+		);
+	});
+
+	test("retains the full query for text contributor fields without account IDs", () => {
+		expect(buildDoneIssuesQuery("Done", null, "customfield_20400", null)).toBe(
+			buildDoneIssuesQuery("Done", null, "customfield_20400"),
 		);
 	});
 });

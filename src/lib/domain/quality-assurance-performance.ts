@@ -1,3 +1,4 @@
+import { contributorIdentityKey } from "./contributor";
 import type {
 	JiraQualityAssuranceIssue,
 	QualityAssuranceStatusMapping,
@@ -11,6 +12,7 @@ export interface QualityAssuranceSprintTicket {
 
 export interface TesterSprintSummary {
 	tester: string;
+	testerAccountIdentifier?: string;
 	doneStoryPoints: number;
 	doneTicketCount: number;
 	readyForQualityAssuranceStoryPoints: number;
@@ -30,9 +32,13 @@ export function totalQualityAssuranceTicketCount(
 	return summary.doneTicketCount + summary.readyForQualityAssuranceTicketCount;
 }
 
-function emptyTesterSprintSummary(tester: string): TesterSprintSummary {
+function emptyTesterSprintSummary(
+	tester: string,
+	testerAccountIdentifier?: string,
+): TesterSprintSummary {
 	return {
 		tester,
+		...(testerAccountIdentifier ? { testerAccountIdentifier } : {}),
 		doneStoryPoints: 0,
 		doneTicketCount: 0,
 		readyForQualityAssuranceStoryPoints: 0,
@@ -54,9 +60,13 @@ export function summarizeQualityAssuranceSprintIssues(
 		) {
 			continue;
 		}
+		const testerKey = contributorIdentityKey(
+			issue.tester,
+			issue.testerAccountIdentifier,
+		);
 		const summary =
-			summariesByTester.get(issue.tester) ??
-			emptyTesterSprintSummary(issue.tester);
+			summariesByTester.get(testerKey) ??
+			emptyTesterSprintSummary(issue.tester, issue.testerAccountIdentifier);
 		const storyPoints = issue.storyPoints ?? 0;
 		if (issue.statusName === statuses.done) {
 			summary.doneStoryPoints += storyPoints;
@@ -70,7 +80,7 @@ export function summarizeQualityAssuranceSprintIssues(
 			summary: issue.summary,
 			status: issue.statusName,
 		});
-		summariesByTester.set(issue.tester, summary);
+		summariesByTester.set(testerKey, summary);
 	}
 
 	return [...summariesByTester.values()]

@@ -32,7 +32,10 @@ describe("Jira issue normalization", () => {
 						["status", { name: "QA" }],
 						["resolutiondate", "2026-08-13T12:00:00.000+0000"],
 						["customfield_10016", 8],
-						["customfield_20001", [{ displayName: "Alex" }]],
+						[
+							"customfield_20001",
+							[{ displayName: "Alex", accountId: "account-alex" }],
+						],
 						["customfield_20002", "2"],
 					]),
 				},
@@ -45,6 +48,7 @@ describe("Jira issue normalization", () => {
 			resolutionDate: "2026-08-13T12:00:00.000+0000",
 			storyPoints: 8,
 			developer: "Alex",
+			developerAccountIdentifier: "account-alex",
 			bounceCount: 2,
 		});
 	});
@@ -86,8 +90,12 @@ describe("Jira issue normalization", () => {
 				fields: Object.fromEntries([
 					["summary", "Verify the leaderboard"],
 					["status", { name: "Done" }],
+					["resolutiondate", "2026-08-14T12:00:00.000+0000"],
 					["customfield_10016", "5"],
-					["customfield_30001", { displayName: "Casey" }],
+					[
+						"customfield_30001",
+						{ displayName: "Casey", accountId: "account-casey" },
+					],
 				]),
 			},
 			qualityAssuranceFieldMapping,
@@ -101,8 +109,10 @@ describe("Jira issue normalization", () => {
 			issueKey: "DEMO-7",
 			summary: "Verify the leaderboard",
 			statusName: "Done",
+			resolutionDate: "2026-08-14T12:00:00.000+0000",
 			storyPoints: 5,
 			tester: "Casey",
+			testerAccountIdentifier: "account-casey",
 		});
 		expect(unassignedIssue.tester).toBe(unassignedTesterName);
 	});

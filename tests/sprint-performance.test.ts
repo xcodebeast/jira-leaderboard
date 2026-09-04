@@ -122,6 +122,56 @@ describe("sprint performance", () => {
 		]);
 	});
 
+	test("keeps same-name Jira accounts separate in sprint standings", () => {
+		const summaries = summarizeSprintIssues(
+			[
+				createIssue({
+					issueKey: "DEMO-7",
+					storyPoints: 5,
+					developer: "Alex",
+					developerAccountIdentifier: "account-one",
+				}),
+				createIssue({
+					issueKey: "DEMO-8",
+					storyPoints: 3,
+					developer: "Alex",
+					developerAccountIdentifier: "account-two",
+				}),
+			],
+			defaultStatusMapping,
+		);
+
+		expect(summaries).toHaveLength(2);
+		expect(
+			summaries.map((summary) => summary.developerAccountIdentifier).sort(),
+		).toEqual(["account-one", "account-two"]);
+	});
+
+	test("compares renamed developers by Jira account identifier", () => {
+		const currentSummary = {
+			...createSprintSummary("Alex New", 8, 0, 0, 0),
+			developerAccountIdentifier: "account-alex",
+		};
+		const previousSummary = {
+			...createSprintSummary("Alex Old", 5, 0, 0, 0),
+			developerAccountIdentifier: "account-alex",
+		};
+
+		expect(compareSprintSummaries([currentSummary], [previousSummary])).toEqual(
+			[
+				{
+					developer: "Alex New",
+					developerAccountIdentifier: "account-alex",
+					donePointsDelta: 3,
+					qualityAssurancePointsDelta: 0,
+					readyForQualityAssurancePointsDelta: 0,
+					projectedPointsDelta: 3,
+					bounceCountDelta: 0,
+				},
+			],
+		);
+	});
+
 	test("compares current and previous sprint values", () => {
 		const comparisons = compareSprintSummaries(
 			[

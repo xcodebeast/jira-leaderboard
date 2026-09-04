@@ -8,6 +8,7 @@ Jira Leaderboard is a simple, stateless web dashboard for comparing sprint resul
 - Combines Development and QA in one shared Sprint Performance view
 - Tracks work by developer and tester without mixing their separate score models
 - Shows board or global developer and QA leaderboards by year or all time
+- Opens individual developer and QA profiles with graph-controlled date ranges; zoomable daily/weekly/monthly timelines with an all-time reset; delivery pace, rework, and searchable ticket drill-down
 - Shows ticket stats: Done, QA, Ready for QA, story points, bounces, ticket totals
 - Compares sprint progress by developer
 - Optionally adds a QA board scoped to the same development sprint, tracking the `Tester` field

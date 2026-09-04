@@ -8,6 +8,7 @@ export interface JiraIssue {
 	resolutionDate: string | null;
 	storyPoints: number | null;
 	developer: string;
+	developerAccountIdentifier?: string;
 	bounceCount: number;
 }
 
@@ -73,8 +74,10 @@ export interface JiraQualityAssuranceIssue {
 	issueKey: string;
 	summary: string;
 	statusName: string | null;
+	resolutionDate?: string;
 	storyPoints: number | null;
 	tester: string;
+	testerAccountIdentifier?: string;
 }
 
 export interface SprintStatusMapping {

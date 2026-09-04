@@ -18,6 +18,7 @@ import AppShell, {
 	type ApplicationView,
 } from "$lib/components/AppShell.svelte";
 import BoardSetup from "$lib/components/BoardSetup.svelte";
+import ContributorProfile from "$lib/components/ContributorProfile.svelte";
 import LogoMark from "$lib/components/LogoMark.svelte";
 import Onboarding from "$lib/components/Onboarding.svelte";
 import PeriodComparison from "$lib/components/PeriodComparison.svelte";
@@ -26,11 +27,15 @@ import SprintPerformanceDashboard from "$lib/components/SprintPerformanceDashboa
 import Alert from "$lib/components/ui/Alert.svelte";
 import Card from "$lib/components/ui/Card.svelte";
 import LoadingState from "$lib/components/ui/LoadingState.svelte";
+import type { ContributorProfileSelection } from "$lib/domain/contributor";
 
 let session = $state<SessionStatus>({ connected: false });
 let configuration = $state<AppConfiguration | null>(null);
 let setupConfiguration = $state<AppConfiguration | null>(null);
 let activeView = $state<ApplicationView>("sprint");
+let contributorProfileSelection = $state<ContributorProfileSelection | null>(
+	null,
+);
 let visitedViews = $state<Record<ApplicationView, boolean>>({
 	sprint: true,
 	allTime: false,
@@ -40,14 +45,16 @@ let visitedViews = $state<Record<ApplicationView, boolean>>({
 let isInitializing = $state(true);
 let initializationError = $state("");
 let pageTitle = $derived(
-	(
-		{
-			sprint: "Sprint performance",
-			allTime: "Leaderboard",
-			period: "Compare periods",
-			settings: "Settings",
-		} satisfies Record<ApplicationView, string>
-	)[activeView],
+	contributorProfileSelection
+		? `${contributorProfileSelection.contributor.displayName} performance`
+		: (
+				{
+					sprint: "Sprint performance",
+					allTime: "Leaderboard",
+					period: "Compare periods",
+					settings: "Settings",
+				} satisfies Record<ApplicationView, string>
+			)[activeView],
 );
 
 async function initializeApplication(): Promise<void> {
@@ -85,6 +92,7 @@ function resetVisitedViews(view: ApplicationView): void {
 }
 
 async function navigateToView(view: ApplicationView): Promise<void> {
+	contributorProfileSelection = null;
 	visitedViews[view] = true;
 	activeView = view;
 	await tick();
@@ -102,9 +110,38 @@ async function navigateToView(view: ApplicationView): Promise<void> {
 	}
 }
 
+async function openContributorProfile(
+	selection: ContributorProfileSelection,
+): Promise<void> {
+	contributorProfileSelection = selection;
+	await tick();
+	window.scrollTo({ top: 0 });
+	const profileHeading = document.querySelector<HTMLElement>(
+		"[data-contributor-profile] h1",
+	);
+	if (profileHeading) {
+		profileHeading.tabIndex = -1;
+		profileHeading.focus({ preventScroll: true });
+	}
+}
+
+async function closeContributorProfile(): Promise<void> {
+	contributorProfileSelection = null;
+	await tick();
+	window.scrollTo({ top: 0 });
+	const viewHeading = document.querySelector<HTMLElement>(
+		`[data-application-view="${activeView}"] h1`,
+	);
+	if (viewHeading) {
+		viewHeading.tabIndex = -1;
+		viewHeading.focus({ preventScroll: true });
+	}
+}
+
 function handleSetupComplete(configurationToSave: AppConfiguration): void {
 	saveBrowserConfiguration(configurationToSave);
 	setupConfiguration = null;
+	contributorProfileSelection = null;
 	activeView = "sprint";
 	resetVisitedViews("sprint");
 }
@@ -113,6 +150,7 @@ function changeSetup(): void {
 	setupConfiguration = configuration;
 	resetVisitedViews(activeView);
 	configuration = null;
+	contributorProfileSelection = null;
 }
 
 async function reconnectJira(): Promise<void> {
@@ -120,6 +158,7 @@ async function reconnectJira(): Promise<void> {
 		saveRememberedJiraSiteUrl(session.jiraSiteUrl);
 	}
 	await disconnectJira();
+	contributorProfileSelection = null;
 	resetVisitedViews(activeView);
 	session = { connected: false };
 }
@@ -129,6 +168,7 @@ async function eraseLocalData(): Promise<void> {
 	clearConfiguration();
 	configuration = null;
 	setupConfiguration = null;
+	contributorProfileSelection = null;
 	session = { connected: false };
 	activeView = "sprint";
 	resetVisitedViews("sprint");
@@ -173,30 +213,54 @@ onMount(() => {
 	/>
 {:else}
 	<AppShell {activeView} {configuration} {session} onNavigate={navigateToView}>
+		{#if contributorProfileSelection}
+			<ContributorProfile
+				{configuration}
+				jiraSiteUrl={session.jiraSiteUrl}
+				selection={contributorProfileSelection}
+				onBack={closeContributorProfile}
+			/>
+		{/if}
 		{#if visitedViews.sprint}
-			<div data-application-view="sprint" hidden={activeView !== "sprint"}>
+			<div
+				data-application-view="sprint"
+				hidden={activeView !== "sprint" || contributorProfileSelection !== null}
+			>
 				<SprintPerformanceDashboard
 					{configuration}
 					jiraSiteUrl={session.jiraSiteUrl}
 					onOpenSettings={() => void navigateToView("settings")}
+					onOpenContributorProfile={(selection) =>
+						void openContributorProfile(selection)}
 				/>
 			</div>
 		{/if}
 		{#if visitedViews.allTime}
-			<div data-application-view="allTime" hidden={activeView !== "allTime"}>
+			<div
+				data-application-view="allTime"
+				hidden={activeView !== "allTime" || contributorProfileSelection !== null}
+			>
 				<AllTimeDashboard
 					{configuration}
 					onOpenSettings={() => void navigateToView("settings")}
+					onOpenContributorProfile={(selection) =>
+						void openContributorProfile(selection)}
 				/>
 			</div>
 		{/if}
 		{#if visitedViews.period}
-			<div data-application-view="period" hidden={activeView !== "period"}>
+			<div
+				data-application-view="period"
+				hidden={activeView !== "period" || contributorProfileSelection !== null}
+			>
 				<PeriodComparison {configuration} />
 			</div>
 		{/if}
 		{#if visitedViews.settings}
-			<div data-application-view="settings" hidden={activeView !== "settings"}>
+			<div
+				data-application-view="settings"
+				hidden={activeView !== "settings" || contributorProfileSelection !== null}
+			>
 				<SettingsPanel
 					{configuration}
 					{session}

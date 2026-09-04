@@ -1,3 +1,4 @@
+import { contributorIdentityKey } from "./contributor";
 import {
 	type JiraIssue,
 	type JiraQualityAssuranceIssue,
@@ -7,6 +8,7 @@ import {
 
 export interface AllTimeLeaderboardEntry {
 	contributor: string;
+	contributorAccountIdentifier?: string;
 	completedPoints: number;
 	completedTickets: number;
 }
@@ -17,11 +19,16 @@ interface CompletedIssue {
 	statusName: string | null;
 	storyPoints: number | null;
 	contributor: string;
+	contributorAccountIdentifier?: string;
 }
 
-function emptyLeaderboardEntry(contributor: string): AllTimeLeaderboardEntry {
+function emptyLeaderboardEntry(
+	contributor: string,
+	contributorAccountIdentifier?: string,
+): AllTimeLeaderboardEntry {
 	return {
 		contributor,
+		...(contributorAccountIdentifier ? { contributorAccountIdentifier } : {}),
 		completedPoints: 0,
 		completedTickets: 0,
 	};
@@ -38,12 +45,19 @@ function summarizeCompletedIssues(
 			continue;
 		}
 
+		const contributorKey = contributorIdentityKey(
+			issue.contributor,
+			issue.contributorAccountIdentifier,
+		);
 		const entry =
-			entriesByContributor.get(issue.contributor) ??
-			emptyLeaderboardEntry(issue.contributor);
+			entriesByContributor.get(contributorKey) ??
+			emptyLeaderboardEntry(
+				issue.contributor,
+				issue.contributorAccountIdentifier,
+			);
 		entry.completedPoints += issue.storyPoints ?? 0;
 		entry.completedTickets += 1;
-		entriesByContributor.set(issue.contributor, entry);
+		entriesByContributor.set(contributorKey, entry);
 	}
 
 	return [...entriesByContributor.values()].sort((leftEntry, rightEntry) => {
@@ -69,6 +83,7 @@ export function summarizeDeveloperAllTimeIssues(
 				statusName: issue.statusName,
 				storyPoints: issue.storyPoints,
 				contributor: issue.developer,
+				contributorAccountIdentifier: issue.developerAccountIdentifier,
 			})),
 		doneStatus,
 	);
@@ -85,6 +100,7 @@ export function summarizeQualityAssuranceAllTimeIssues(
 				statusName: issue.statusName,
 				storyPoints: issue.storyPoints,
 				contributor: issue.tester,
+				contributorAccountIdentifier: issue.testerAccountIdentifier,
 			})),
 		doneStatus,
 	);
@@ -107,6 +123,7 @@ export function buildDoneIssuesQuery(
 	doneStatus: string,
 	year: number | null,
 	contributorFieldIdentifier: string,
+	contributorAccountIdentifier: string | null = null,
 ): string {
 	const escapedStatus = doneStatus
 		.replaceAll("\\", "\\\\")
@@ -121,6 +138,14 @@ export function buildDoneIssuesQuery(
 		`status = "${escapedStatus}"`,
 		`${contributorFieldReference} is not EMPTY`,
 	];
+	if (contributorAccountIdentifier) {
+		const escapedAccountIdentifier = contributorAccountIdentifier
+			.replaceAll("\\", "\\\\")
+			.replaceAll('"', '\\"');
+		conditions.push(
+			`${contributorFieldReference} = "${escapedAccountIdentifier}"`,
+		);
+	}
 	if (year === null) {
 		return conditions.join(" AND ");
 	}

@@ -1,11 +1,16 @@
 <script lang="ts">
 import {
+	type ContributorReference,
+	contributorIdentityKey,
+} from "../domain/contributor";
+import { unassignedTesterName } from "../domain/jira";
+import {
 	type TesterSprintSummary,
 	totalQualityAssuranceTicketCount,
 } from "../domain/quality-assurance-performance";
 import { formatNumber } from "../presentation/format";
+import ContributorButton from "./ContributorButton.svelte";
 import SprintTicketLinks from "./SprintTicketLinks.svelte";
-import Avatar from "./ui/Avatar.svelte";
 import Card from "./ui/Card.svelte";
 import EmptyState from "./ui/EmptyState.svelte";
 import RankBadge from "./ui/RankBadge.svelte";
@@ -14,9 +19,16 @@ import Table from "./ui/Table.svelte";
 interface Properties {
 	jiraSiteUrl?: string | null;
 	summaries: TesterSprintSummary[];
+	onOpenContributor?: (contributor: ContributorReference) => void;
 }
 
-let { jiraSiteUrl = null, summaries }: Properties = $props();
+let { jiraSiteUrl = null, summaries, onOpenContributor }: Properties = $props();
+
+function contributorSelectionHandler(
+	displayName: string,
+): ((contributor: ContributorReference) => void) | undefined {
+	return displayName === unassignedTesterName ? undefined : onOpenContributor;
+}
 </script>
 
 <Card class="overflow-hidden rounded-[1.2rem]">
@@ -50,25 +62,18 @@ let { jiraSiteUrl = null, summaries }: Properties = $props();
 		/>
 	{:else}
 		<div class="divide-y divide-line/60 md:hidden">
-			{#each summaries as summary, rank (summary.tester)}
+			{#each summaries as summary, rank (contributorIdentityKey(summary.tester, summary.testerAccountIdentifier))}
 				<article class={`p-5 ${rank === 0 ? "bg-brand/3" : ""}`}>
 					<div class="flex items-center gap-3">
 						<RankBadge rank={rank + 1} />
-						<Avatar
-							name={summary.tester}
+						<ContributorButton
+							displayName={summary.tester}
+							accountIdentifier={summary.testerAccountIdentifier}
 							tone={rank === 0 ? "brand" : "info"}
+							detail={`${totalQualityAssuranceTicketCount(summary)} ${totalQualityAssuranceTicketCount(summary) === 1 ? "ticket" : "tickets"}`}
+							class="flex-1"
+							onSelect={contributorSelectionHandler(summary.tester)}
 						/>
-						<div class="min-w-0 flex-1">
-							<p class="truncate font-extrabold text-ice">
-								{summary.tester}
-							</p>
-							<p class="mt-0.5 text-xs text-muted">
-								{totalQualityAssuranceTicketCount(summary)}
-								{totalQualityAssuranceTicketCount(summary) === 1
-									? "ticket"
-									: "tickets"}
-							</p>
-						</div>
 						<p class="metric-value text-2xl font-extrabold text-brand">
 							{formatNumber(summary.doneStoryPoints)}
 						</p>
@@ -129,18 +134,19 @@ let { jiraSiteUrl = null, summaries }: Properties = $props();
 				</tr>
 			{/snippet}
 			{#snippet body()}
-				{#each summaries as summary, rank (summary.tester)}
+				{#each summaries as summary, rank (contributorIdentityKey(summary.tester, summary.testerAccountIdentifier))}
 					<tr
 						class={`transition-colors hover:bg-panel-soft/45 ${rank === 0 ? "bg-brand/3" : ""}`}
 					>
 						<td class="px-6 py-4">
 							<div class="flex items-center gap-3">
 								<RankBadge rank={rank + 1} />
-								<Avatar
-									name={summary.tester}
+								<ContributorButton
+									displayName={summary.tester}
+									accountIdentifier={summary.testerAccountIdentifier}
 									tone={rank === 0 ? "brand" : "info"}
+									onSelect={contributorSelectionHandler(summary.tester)}
 								/>
-								<span class="font-bold text-ice">{summary.tester}</span>
 							</div>
 						</td>
 						<td

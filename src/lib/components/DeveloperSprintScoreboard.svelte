@@ -1,12 +1,17 @@
 <script lang="ts">
 import {
+	type ContributorReference,
+	contributorIdentityKey,
+} from "../domain/contributor";
+import { unassignedDeveloperName } from "../domain/jira";
+import {
 	type DeveloperSprintComparison,
 	type DeveloperSprintSummary,
 	projectedSprintPoints,
 } from "../domain/sprint-performance";
 import { formatDelta, formatNumber } from "../presentation/format";
+import ContributorButton from "./ContributorButton.svelte";
 import SprintTicketLinks from "./SprintTicketLinks.svelte";
-import Avatar from "./ui/Avatar.svelte";
 import Card from "./ui/Card.svelte";
 import EmptyState from "./ui/EmptyState.svelte";
 import RankBadge from "./ui/RankBadge.svelte";
@@ -17,6 +22,7 @@ interface Properties {
 	summaries: DeveloperSprintSummary[];
 	comparisons: DeveloperSprintComparison[];
 	comparisonSprint: { name: string } | null;
+	onOpenContributor?: (contributor: ContributorReference) => void;
 }
 
 let {
@@ -24,7 +30,16 @@ let {
 	summaries,
 	comparisons,
 	comparisonSprint,
+	onOpenContributor,
 }: Properties = $props();
+
+function contributorSelectionHandler(
+	displayName: string,
+): ((contributor: ContributorReference) => void) | undefined {
+	return displayName === unassignedDeveloperName
+		? undefined
+		: onOpenContributor;
+}
 
 function deltaClass(value: number): string {
 	return value > 0 ? "text-mint" : value < 0 ? "text-coral" : "text-muted";
@@ -62,25 +77,18 @@ function deltaClass(value: number): string {
 		/>
 	{:else}
 		<div class="divide-y divide-line/60 md:hidden">
-			{#each summaries as summary, rank (summary.developer)}
+			{#each summaries as summary, rank (contributorIdentityKey(summary.developer, summary.developerAccountIdentifier))}
 				<article class={`p-5 ${rank === 0 ? "bg-brand/3" : ""}`}>
 					<div class="flex items-center gap-3">
 						<RankBadge rank={rank + 1} />
-						<Avatar
-							name={summary.developer}
+						<ContributorButton
+							displayName={summary.developer}
+							accountIdentifier={summary.developerAccountIdentifier}
 							tone={rank === 0 ? "brand" : "success"}
+							detail={`${summary.tickets.length} ${summary.tickets.length === 1 ? "ticket" : "tickets"}`}
+							class="flex-1"
+							onSelect={contributorSelectionHandler(summary.developer)}
 						/>
-						<div class="min-w-0 flex-1">
-							<p class="truncate font-extrabold text-ice">
-								{summary.developer}
-							</p>
-							<p class="mt-0.5 text-xs text-muted">
-								{summary.tickets.length}
-								{summary.tickets.length === 1
-									? "ticket"
-									: "tickets"}
-							</p>
-						</div>
 						<p class="metric-value text-2xl font-extrabold text-brand">
 							{formatNumber(projectedSprintPoints(summary))}
 						</p>
@@ -153,18 +161,19 @@ function deltaClass(value: number): string {
 				</tr>
 			{/snippet}
 			{#snippet body()}
-				{#each summaries as summary, rank (summary.developer)}
+				{#each summaries as summary, rank (contributorIdentityKey(summary.developer, summary.developerAccountIdentifier))}
 					<tr
 						class={`transition-colors hover:bg-panel-soft/45 ${rank === 0 ? "bg-brand/3" : ""}`}
 					>
 						<td class="px-6 py-4">
 							<div class="flex items-center gap-3">
 								<RankBadge rank={rank + 1} />
-								<Avatar
-									name={summary.developer}
+								<ContributorButton
+									displayName={summary.developer}
+									accountIdentifier={summary.developerAccountIdentifier}
 									tone={rank === 0 ? "brand" : "success"}
+									onSelect={contributorSelectionHandler(summary.developer)}
 								/>
-								<span class="font-bold text-ice">{summary.developer}</span>
 							</div>
 						</td>
 						<td
@@ -227,21 +236,20 @@ function deltaClass(value: number): string {
 			</p>
 		</div>
 		<div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-			{#each comparisons as comparison, index (comparison.developer)}
+			{#each comparisons as comparison, index (contributorIdentityKey(comparison.developer, comparison.developerAccountIdentifier))}
 				<article class="rounded-xl border border-line/65 bg-canvas/32 p-4">
 					<div class="flex items-center justify-between gap-3">
 						<div class="flex min-w-0 items-center gap-2.5">
-							<Avatar
-								name={comparison.developer}
+							<ContributorButton
+								displayName={comparison.developer}
+								accountIdentifier={comparison.developerAccountIdentifier}
 								tone={index === 0 &&
 								comparison.projectedPointsDelta > 0
 									? "brand"
 									: "neutral"}
 								size="small"
+								onSelect={contributorSelectionHandler(comparison.developer)}
 							/>
-							<h3 class="truncate font-bold text-ice">
-								{comparison.developer}
-							</h3>
 						</div>
 						<span
 							class={`metric-value text-xl font-extrabold ${deltaClass(comparison.projectedPointsDelta)}`}

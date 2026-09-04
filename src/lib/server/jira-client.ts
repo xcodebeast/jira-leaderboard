@@ -196,33 +196,55 @@ function parseJiraSprint(value: unknown): JiraSprint {
 	};
 }
 
-function preferredContributorName(value: unknown): string {
+interface ParsedContributor {
+	displayName: string;
+	accountIdentifier: string | null;
+}
+
+function parseContributor(value: unknown): ParsedContributor | null {
 	if (typeof value === "string") {
-		return value.trim();
+		const displayName = value.trim();
+		return displayName ? { displayName, accountIdentifier: null } : null;
 	}
 
 	const contributor = objectValue(value);
 	if (!contributor) {
-		return "";
+		return null;
 	}
 
 	for (const propertyName of ["displayName", "name", "emailAddress", "value"]) {
 		const candidate = stringValue(contributor[propertyName])?.trim();
 		if (candidate) {
-			return candidate;
+			return {
+				displayName: candidate,
+				accountIdentifier: stringValue(contributor.accountId),
+			};
 		}
 	}
 
-	return "";
+	return null;
 }
 
-function parseContributors(value: unknown, unassignedName: string): string {
-	const contributorNames = Array.isArray(value)
-		? value.map(preferredContributorName).filter(Boolean)
-		: [preferredContributorName(value)].filter(Boolean);
-	return contributorNames.length > 0
-		? contributorNames.join(", ")
-		: unassignedName;
+function parseContributors(
+	value: unknown,
+	unassignedName: string,
+): { displayName: string; accountIdentifier: string | null } {
+	const contributors = (Array.isArray(value) ? value : [value])
+		.map(parseContributor)
+		.filter(
+			(contributor): contributor is ParsedContributor => contributor !== null,
+		);
+	if (contributors.length === 0) {
+		return { displayName: unassignedName, accountIdentifier: null };
+	}
+
+	return {
+		displayName: contributors
+			.map((contributor) => contributor.displayName)
+			.join(", "),
+		accountIdentifier:
+			contributors.length === 1 ? contributors[0].accountIdentifier : null,
+	};
 }
 
 export function normalizeJiraIssue(
@@ -232,16 +254,20 @@ export function normalizeJiraIssue(
 	const rawIssue = requiredObject(value, "issue");
 	const fields = objectValue(rawIssue.fields) ?? {};
 	const status = objectValue(fields.status);
+	const developer = parseContributors(
+		fields[fieldMapping.developerFieldIdentifier],
+		unassignedDeveloperName,
+	);
 	return {
 		issueKey: stringValue(rawIssue.key) ?? "",
 		summary: stringValue(fields.summary) ?? "",
 		statusName: status ? stringValue(status.name) : null,
 		resolutionDate: stringValue(fields.resolutiondate),
 		storyPoints: numberValue(fields[fieldMapping.storyPointsFieldIdentifier]),
-		developer: parseContributors(
-			fields[fieldMapping.developerFieldIdentifier],
-			unassignedDeveloperName,
-		),
+		developer: developer.displayName,
+		...(developer.accountIdentifier
+			? { developerAccountIdentifier: developer.accountIdentifier }
+			: {}),
 		bounceCount:
 			numberValue(fields[fieldMapping.bounceCountFieldIdentifier]) ?? 0,
 	};
@@ -254,16 +280,22 @@ export function normalizeJiraQualityAssuranceIssue(
 	const rawIssue = requiredObject(value, "issue");
 	const fields = objectValue(rawIssue.fields) ?? {};
 	const status = objectValue(fields.status);
+	const tester = parseContributors(
+		fields[fieldMapping.testerFieldIdentifier],
+		unassignedTesterName,
+	);
+	const resolutionDate = stringValue(fields.resolutiondate);
 
 	return {
 		issueKey: stringValue(rawIssue.key) ?? "",
 		summary: stringValue(fields.summary) ?? "",
 		statusName: status ? stringValue(status.name) : null,
+		...(resolutionDate ? { resolutionDate } : {}),
 		storyPoints: numberValue(fields[fieldMapping.storyPointsFieldIdentifier]),
-		tester: parseContributors(
-			fields[fieldMapping.testerFieldIdentifier],
-			unassignedTesterName,
-		),
+		tester: tester.displayName,
+		...(tester.accountIdentifier
+			? { testerAccountIdentifier: tester.accountIdentifier }
+			: {}),
 	};
 }
 
@@ -695,14 +727,16 @@ export class JiraClient {
 		doneStatus: string,
 		year: number | null,
 		fieldMapping: JiraFieldMapping,
+		contributorAccountIdentifier: string | null = null,
 	): Promise<JiraIssue[]> {
 		return this.boardIssues(
 			boardIdentifier,
-			this.requestedIssueFields(fieldMapping, false),
+			this.requestedIssueFields(fieldMapping, true),
 			buildDoneIssuesQuery(
 				doneStatus,
 				year,
 				fieldMapping.developerFieldIdentifier,
+				contributorAccountIdentifier,
 			),
 			"development all-time issue page",
 			(issue) => normalizeJiraIssue(issue, fieldMapping),
@@ -713,14 +747,16 @@ export class JiraClient {
 		doneStatus: string,
 		year: number | null,
 		fieldMapping: JiraFieldMapping,
+		contributorAccountIdentifier: string | null = null,
 	): Promise<JiraIssue[]> {
 		return this.searchIssues(
 			buildDoneIssuesQuery(
 				doneStatus,
 				year,
 				fieldMapping.developerFieldIdentifier,
+				contributorAccountIdentifier,
 			),
-			this.requestedIssueFields(fieldMapping, false),
+			this.requestedIssueFields(fieldMapping, true),
 			"global development issue page",
 			(issue) => normalizeJiraIssue(issue, fieldMapping),
 		);
@@ -731,8 +767,10 @@ export class JiraClient {
 		doneStatus: string,
 		year: number | null,
 		fieldMapping: QualityAssuranceFieldMapping,
+		contributorAccountIdentifier: string | null = null,
 	): Promise<JiraQualityAssuranceIssue[]> {
 		const requestedFields = [
+			"resolutiondate",
 			"summary",
 			"status",
 			fieldMapping.storyPointsFieldIdentifier,
@@ -745,6 +783,7 @@ export class JiraClient {
 				doneStatus,
 				year,
 				fieldMapping.testerFieldIdentifier,
+				contributorAccountIdentifier,
 			),
 			"quality assurance all-time issue page",
 			(issue) => normalizeJiraQualityAssuranceIssue(issue, fieldMapping),
@@ -755,8 +794,10 @@ export class JiraClient {
 		doneStatus: string,
 		year: number | null,
 		fieldMapping: QualityAssuranceFieldMapping,
+		contributorAccountIdentifier: string | null = null,
 	): Promise<JiraQualityAssuranceIssue[]> {
 		const requestedFields = [
+			"resolutiondate",
 			"summary",
 			"status",
 			fieldMapping.storyPointsFieldIdentifier,
@@ -767,6 +808,7 @@ export class JiraClient {
 				doneStatus,
 				year,
 				fieldMapping.testerFieldIdentifier,
+				contributorAccountIdentifier,
 			),
 			requestedFields,
 			"global quality assurance issue page",

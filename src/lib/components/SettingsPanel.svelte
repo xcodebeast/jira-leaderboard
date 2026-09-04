@@ -1,69 +1,67 @@
 <script lang="ts">
-	import type { ConnectedSession } from "../browser/api-client";
-	import type { AppConfiguration } from "../browser/configuration";
-	import Badge from "./ui/Badge.svelte";
-	import Button from "./ui/Button.svelte";
-	import Card from "./ui/Card.svelte";
-	import Field from "./ui/Field.svelte";
-	import Input from "./ui/Input.svelte";
+import type { ConnectedSession } from "../browser/api-client";
+import type { AppConfiguration } from "../browser/configuration";
+import Badge from "./ui/Badge.svelte";
+import Button from "./ui/Button.svelte";
+import Card from "./ui/Card.svelte";
+import Field from "./ui/Field.svelte";
+import Input from "./ui/Input.svelte";
 
-	interface Properties {
-		configuration: AppConfiguration;
-		session: ConnectedSession;
-		onSaveConfiguration: (configuration: AppConfiguration) => void;
-		onChangeSetup: () => void;
-		onReconnect: () => void;
-		onErase: () => void;
+interface Properties {
+	configuration: AppConfiguration;
+	session: ConnectedSession;
+	onSaveConfiguration: (configuration: AppConfiguration) => void;
+	onChangeSetup: () => void;
+	onReconnect: () => void;
+	onErase: () => void;
+}
+
+let {
+	configuration,
+	session,
+	onSaveConfiguration,
+	onChangeSetup,
+	onReconnect,
+	onErase,
+}: Properties = $props();
+let defaultProjectKey = $state("");
+let hasInitializedProjectKey = $state(false);
+let savedMessage = $state("");
+
+$effect(() => {
+	if (!hasInitializedProjectKey) {
+		defaultProjectKey = configuration.defaultProjectKey;
+		hasInitializedProjectKey = true;
 	}
+});
 
-	let {
-		configuration,
-		session,
-		onSaveConfiguration,
-		onChangeSetup,
-		onReconnect,
-		onErase,
-	}: Properties = $props();
-	let defaultProjectKey = $state("");
-	let hasInitializedProjectKey = $state(false);
-	let savedMessage = $state("");
-
-	$effect(() => {
-		if (!hasInitializedProjectKey) {
-			defaultProjectKey = configuration.defaultProjectKey;
-			hasInitializedProjectKey = true;
-		}
+function saveProjectKey(event: SubmitEvent): void {
+	event.preventDefault();
+	if (!defaultProjectKey.trim()) {
+		return;
+	}
+	onSaveConfiguration({
+		...configuration,
+		defaultProjectKey: defaultProjectKey.trim(),
 	});
+	savedMessage = "Saved in this browser";
+	window.setTimeout(() => (savedMessage = ""), 2_000);
+}
 
-	function saveProjectKey(event: SubmitEvent): void {
-		event.preventDefault();
-		if (!defaultProjectKey.trim()) {
-			return;
-		}
-		onSaveConfiguration({
-			...configuration,
-			defaultProjectKey: defaultProjectKey.trim(),
-		});
-		savedMessage = "Saved in this browser";
-		window.setTimeout(() => (savedMessage = ""), 2_000);
+function confirmErase(): void {
+	if (
+		window.confirm(
+			"Remove the encrypted Jira session and all saved browser preferences?",
+		)
+	) {
+		onErase();
 	}
-
-	function confirmErase(): void {
-		if (
-			window.confirm(
-				"Remove the encrypted Jira session and all saved browser preferences?",
-			)
-		) {
-			onErase();
-		}
-	}
+}
 </script>
 
 <main class="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
 	<header class="max-w-2xl">
-		<h1
-			class="display-title mt-3 text-4xl leading-none text-ice sm:text-5xl"
-		>
+		<h1 class="display-title mt-3 text-4xl leading-none text-ice sm:text-5xl">
 			Settings
 		</h1>
 	</header>
@@ -110,11 +108,7 @@
 					<dd class="font-medium text-mint">None</dd>
 				</div>
 			</dl>
-			<Button
-				class="mt-7 w-full"
-				variant="secondary"
-				onclick={onReconnect}
-			>
+			<Button class="mt-7 w-full" variant="secondary" onclick={onReconnect}>
 				Replace Jira credentials
 			</Button>
 		</Card>
@@ -143,11 +137,7 @@
 					{savedMessage}
 				</p>
 			</form>
-			<Button
-				class="mt-7 w-full"
-				variant="secondary"
-				onclick={onChangeSetup}
-			>
+			<Button class="mt-7 w-full" variant="secondary" onclick={onChangeSetup}>
 				Change board or field mappings
 			</Button>
 		</Card>
@@ -157,9 +147,7 @@
 		<p class="eyebrow">Development mappings</p>
 		<div class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each [["Story points", configuration.fieldMapping.storyPointsFieldIdentifier], ["Developer", configuration.fieldMapping.developerFieldIdentifier], ["Bounce count", configuration.fieldMapping.bounceCountFieldIdentifier], ["Done", configuration.statusMapping.done], ["QA", configuration.statusMapping.qualityAssurance], ["Ready for QA", configuration.statusMapping.readyForQualityAssurance]] as mapping (mapping[0])}
-				<div
-					class="rounded-xl border border-line/70 bg-canvas/30 px-4 py-3"
-				>
+				<div class="rounded-xl border border-line/70 bg-canvas/30 px-4 py-3">
 					<p class="text-xs text-muted">{mapping[0]}</p>
 					<p
 						class="mt-1 truncate font-mono text-xs font-semibold text-ice"
@@ -192,9 +180,7 @@
 		{#if configuration.qualityAssurance}
 			<div class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 				{#each [["Story points", configuration.qualityAssurance.fieldMapping.storyPointsFieldIdentifier], ["Tester", configuration.qualityAssurance.fieldMapping.testerFieldIdentifier], ["Done", configuration.qualityAssurance.statusMapping.done], ["Ready for QA", configuration.qualityAssurance.statusMapping.readyForQualityAssurance]] as mapping (mapping[0])}
-					<div
-						class="rounded-xl border border-line/70 bg-canvas/30 px-4 py-3"
-					>
+					<div class="rounded-xl border border-line/70 bg-canvas/30 px-4 py-3">
 						<p class="text-xs text-muted">{mapping[0]}</p>
 						<p
 							class="mt-1 truncate font-mono text-xs font-semibold text-ice"
@@ -207,8 +193,8 @@
 			</div>
 		{:else}
 			<p class="mt-3 text-sm leading-6 text-muted">
-				Run board setup again to add Tester-owned QA performance to the
-				sprint view and leaderboard.
+				Run board setup again to add Tester-owned QA performance to the sprint
+				view and leaderboard.
 			</p>
 		{/if}
 	</Card>
@@ -220,8 +206,8 @@
 		<div>
 			<h2 class="font-bold text-[#ffd8d0]">Erase this browser’s setup</h2>
 			<p class="mt-1 text-sm leading-6 text-muted">
-				Removes the encrypted credential cookie and all local
-				preferences. Nothing is deleted from Jira.
+				Removes the encrypted credential cookie and all local preferences.
+				Nothing is deleted from Jira.
 			</p>
 		</div>
 		<Button class="mt-4 sm:mt-0" variant="danger" onclick={confirmErase}>

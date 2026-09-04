@@ -10,6 +10,10 @@ import {
 	initializeSprintHistory,
 	loadOlderSprintHistoryPage,
 } from "../browser/sprint-history";
+import type {
+	ContributorProfileSelection,
+	ContributorReference,
+} from "../domain/contributor";
 import {
 	findPreviousClosedSprint,
 	type JiraSprint,
@@ -49,9 +53,15 @@ interface Properties {
 	configuration: AppConfiguration;
 	jiraSiteUrl: string;
 	onOpenSettings: () => void;
+	onOpenContributorProfile: (selection: ContributorProfileSelection) => void;
 }
 
-let { configuration, jiraSiteUrl, onOpenSettings }: Properties = $props();
+let {
+	configuration,
+	jiraSiteUrl,
+	onOpenSettings,
+	onOpenContributorProfile,
+}: Properties = $props();
 let sprints = $state<JiraSprint[]>([]);
 let selectedSprintIdentifier = $state("");
 let comparisonSprintIdentifier = $state("");
@@ -171,6 +181,31 @@ let sharedSnapshotIdentity = $derived(
 		qualityAssuranceReportSprintIdentifier ?? "",
 	].join(":"),
 );
+
+function openDevelopmentContributor(contributor: ContributorReference): void {
+	onOpenContributorProfile({
+		contributor,
+		role: "development",
+		scope: "board",
+		sourceLabel: configuration.boardName,
+	});
+}
+
+function openQualityAssuranceContributor(
+	contributor: ContributorReference,
+): void {
+	const qualityAssuranceConfiguration = configuration.qualityAssurance;
+	if (!qualityAssuranceConfiguration) {
+		return;
+	}
+
+	onOpenContributorProfile({
+		contributor,
+		role: "qualityAssurance",
+		scope: "board",
+		sourceLabel: qualityAssuranceConfiguration.boardName,
+	});
+}
 
 function selectSuggestedComparison(): void {
 	if (!selectedSprint) {
@@ -698,6 +733,7 @@ onMount(() => {
 							comparisonSprint={hasDevelopmentComparison
 								? comparisonSprint
 								: null}
+							onOpenContributor={openDevelopmentContributor}
 						/>
 					{/if}
 				{:else if configuration.qualityAssurance}
@@ -707,6 +743,7 @@ onMount(() => {
 						<QualityAssuranceSprintScoreboard
 							{jiraSiteUrl}
 							summaries={qualityAssuranceSummaries}
+							onOpenContributor={openQualityAssuranceContributor}
 						/>
 					{/if}
 				{:else}

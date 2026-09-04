@@ -83,6 +83,30 @@ describe("quality assurance performance", () => {
 		]);
 	});
 
+	test("keeps same-name Jira accounts separate in QA standings", () => {
+		const summaries = summarizeQualityAssuranceSprintIssues(
+			[
+				createQualityAssuranceIssue({
+					storyPoints: 5,
+					tester: "Casey",
+					testerAccountIdentifier: "account-one",
+				}),
+				createQualityAssuranceIssue({
+					issueKey: "DEMO-2",
+					storyPoints: 3,
+					tester: "Casey",
+					testerAccountIdentifier: "account-two",
+				}),
+			],
+			{ done: "Done", readyForQualityAssurance: "Ready for QA" },
+		);
+
+		expect(summaries).toHaveLength(2);
+		expect(
+			summaries.map((summary) => summary.testerAccountIdentifier).sort(),
+		).toEqual(["account-one", "account-two"]);
+	});
+
 	test("keeps unassigned tester work visible in sprint performance", () => {
 		const summaries = summarizeQualityAssuranceSprintIssues(
 			[createQualityAssuranceIssue({ storyPoints: 3 })],
