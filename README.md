@@ -8,6 +8,7 @@ Jira Leaderboard is a simple, stateless web dashboard for comparing sprint resul
 - Combines Development and QA in one shared Sprint Performance view
 - Tracks work by developer and tester without mixing their separate score models
 - Shows board or global developer and QA leaderboards by year or all time
+- Caches leaderboard scores in your browser for two hours; Refresh scores clears the cache and loads the latest results from Jira
 - Opens individual developer and QA profiles with graph-controlled date ranges; zoomable daily/weekly/monthly timelines with an all-time reset; delivery pace, rework, and searchable ticket drill-down
 - Shows ticket stats: Done, QA, Ready for QA, story points, bounces, ticket totals
 - Compares sprint progress by developer
@@ -19,6 +20,7 @@ Jira Leaderboard is a simple, stateless web dashboard for comparing sprint resul
 
 - No database: the server never stores users, Jira data, or reports.
 - Preferences (board/QA board/status/etc.) save in your browser's localStorage.
+- Calculated leaderboard scores also save in localStorage for two hours, separated by Jira account and report settings. Raw Jira issues and credentials are not cached. Reconnecting, disconnecting, or erasing local data clears the score cache.
 - Jira site, email, and API token are encrypted using AES-256 into a secure cookie.
 - All APIs are read-only; the server cannot change data in Jira.
 - Shared snapshots are compressed and encrypted entirely in the browser, then stored in the URL fragment. The server never receives or stores the report or its decryption key.

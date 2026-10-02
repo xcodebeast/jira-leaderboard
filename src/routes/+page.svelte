@@ -242,6 +242,8 @@ onMount(() => {
 			>
 				<AllTimeDashboard
 					{configuration}
+					{session}
+					isActive={activeView === "allTime" && contributorProfileSelection === null}
 					onOpenSettings={() => void navigateToView("settings")}
 					onOpenContributorProfile={(selection) =>
 						void openContributorProfile(selection)}

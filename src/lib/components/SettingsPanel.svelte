@@ -51,7 +51,7 @@ function saveProjectKey(event: SubmitEvent): void {
 function confirmErase(): void {
 	if (
 		window.confirm(
-			"Remove the encrypted Jira session and all saved browser preferences?",
+			"Remove the encrypted Jira session, all saved browser preferences, and cached leaderboard scores?",
 		)
 	) {
 		onErase();
@@ -206,8 +206,8 @@ function confirmErase(): void {
 		<div>
 			<h2 class="font-bold text-[#ffd8d0]">Erase this browser’s setup</h2>
 			<p class="mt-1 text-sm leading-6 text-muted">
-				Removes the encrypted credential cookie and all local preferences.
-				Nothing is deleted from Jira.
+				Removes the encrypted credential cookie, local preferences, and cached
+				leaderboard scores. Nothing is deleted from Jira.
 			</p>
 		</div>
 		<Button class="mt-4 sm:mt-0" variant="danger" onclick={confirmErase}>

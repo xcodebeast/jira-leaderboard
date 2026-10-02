@@ -13,6 +13,7 @@ import type {
 	JiraSetupSuggestion,
 	QualityAssuranceSetupSuggestion,
 } from "../domain/setup";
+import { clearLeaderboardCache } from "./leaderboard-cache";
 
 export interface ConnectedSession {
 	connected: true;
@@ -77,23 +78,33 @@ async function requestJson<ResponseData>(
 	return payload as ResponseData;
 }
 
-export function loadSession(): Promise<SessionStatus> {
-	return requestJson<SessionStatus>("/api/session");
+export async function loadSession(): Promise<SessionStatus> {
+	const session = await requestJson<SessionStatus>("/api/session");
+	if (!session.connected) clearLeaderboardCache();
+	return session;
 }
 
-export function connectJira(credentials: {
+export async function connectJira(credentials: {
 	jiraSiteUrl: string;
 	emailAddress: string;
 	apiToken: string;
 }): Promise<ConnectedSession> {
-	return requestJson<ConnectedSession>("/api/session", {
+	const session = await requestJson<ConnectedSession>("/api/session", {
 		method: "POST",
 		body: credentials,
 	});
+	clearLeaderboardCache();
+	return session;
 }
 
-export function disconnectJira(): Promise<DisconnectedSession> {
-	return requestJson<DisconnectedSession>("/api/session", { method: "DELETE" });
+export async function disconnectJira(): Promise<DisconnectedSession> {
+	try {
+		return await requestJson<DisconnectedSession>("/api/session", {
+			method: "DELETE",
+		});
+	} finally {
+		clearLeaderboardCache();
+	}
 }
 
 export async function loadBoards(

@@ -1,10 +1,17 @@
 <script lang="ts">
-import { onMount } from "svelte";
+import { onDestroy, untrack } from "svelte";
 import {
+	type ConnectedSession,
 	loadDevelopmentAllTimeIssues,
 	loadQualityAssuranceAllTimeIssues,
 } from "../browser/api-client";
 import type { AppConfiguration } from "../browser/configuration";
+import {
+	clearLeaderboardCache,
+	leaderboardCacheKey,
+	readCachedLeaderboardReport,
+	writeCachedLeaderboardReport,
+} from "../browser/leaderboard-cache";
 import {
 	type AllTimeLeaderboardEntry,
 	type LeaderboardScope,
@@ -34,17 +41,26 @@ import Select from "./ui/Select.svelte";
 
 interface Properties {
 	configuration: AppConfiguration;
+	session: ConnectedSession;
+	isActive: boolean;
 	onOpenSettings: () => void;
 	onOpenContributorProfile: (selection: ContributorProfileSelection) => void;
 }
 
-let { configuration, onOpenSettings, onOpenContributorProfile }: Properties =
-	$props();
+let {
+	configuration,
+	session,
+	isActive,
+	onOpenSettings,
+	onOpenContributorProfile,
+}: Properties = $props();
 let developerEntries = $state<AllTimeLeaderboardEntry[]>([]);
 let qualityAssuranceEntries = $state<AllTimeLeaderboardEntry[]>([]);
 let isLoading = $state(true);
 let reportSelection = $state<string | null>(null);
 let errorMessage = $state("");
+let cachedAt = $state<number | null>(null);
+let loadRevision = 0;
 const currentYear = new Date().getFullYear();
 const earliestSelectableYear = 2002;
 const selectableYears = Array.from(
@@ -59,7 +75,9 @@ let selectedYear = $derived(
 let selectedPeriodLabel = $derived(
 	selectedPeriod === "all" ? "All time" : selectedPeriod,
 );
-let selectedReportKey = $derived(`${selectedScope}:${selectedPeriod}`);
+let selectedReportKey = $derived(
+	leaderboardCacheKey(session, configuration, selectedScope, selectedYear),
+);
 let hasCurrentReport = $derived(reportSelection === selectedReportKey);
 let developerSourceLabel = $derived(
 	selectedScope === "global"
@@ -133,52 +151,81 @@ function createSharedSnapshot(): SharedLeaderboardSnapshot {
 	};
 }
 
-async function refreshReport(): Promise<void> {
+async function loadReport(refresh = false): Promise<void> {
+	const revision = ++loadRevision;
 	const reportKey = selectedReportKey;
+	const requestedConfiguration = configuration;
+	const requestedScope = selectedScope;
+	const requestedYear = selectedYear;
 	isLoading = true;
 	errorMessage = "";
 	try {
+		if (refresh) clearLeaderboardCache();
+		const cachedReport = refresh
+			? null
+			: readCachedLeaderboardReport(reportKey);
+		if (cachedReport) {
+			developerEntries = cachedReport.developerEntries;
+			qualityAssuranceEntries = cachedReport.qualityAssuranceEntries;
+			cachedAt = cachedReport.cachedAt;
+			reportSelection = reportKey;
+			return;
+		}
 		const [developerIssues, qualityAssuranceIssues] = await Promise.all([
 			loadDevelopmentAllTimeIssues(
-				configuration.boardIdentifier,
-				selectedScope,
-				configuration.statusMapping.done,
-				selectedYear,
-				configuration.fieldMapping,
+				requestedConfiguration.boardIdentifier,
+				requestedScope,
+				requestedConfiguration.statusMapping.done,
+				requestedYear,
+				requestedConfiguration.fieldMapping,
 			),
-			configuration.qualityAssurance
+			requestedConfiguration.qualityAssurance
 				? loadQualityAssuranceAllTimeIssues(
-						configuration.qualityAssurance.boardIdentifier,
-						selectedScope,
-						configuration.qualityAssurance.statusMapping.done,
-						selectedYear,
-						configuration.qualityAssurance.fieldMapping,
+						requestedConfiguration.qualityAssurance.boardIdentifier,
+						requestedScope,
+						requestedConfiguration.qualityAssurance.statusMapping.done,
+						requestedYear,
+						requestedConfiguration.qualityAssurance.fieldMapping,
 					)
 				: Promise.resolve([]),
 		]);
+		if (revision !== loadRevision) return;
 		developerEntries = summarizeDeveloperAllTimeIssues(
 			developerIssues,
-			configuration.statusMapping.done,
+			requestedConfiguration.statusMapping.done,
 		);
-		qualityAssuranceEntries = configuration.qualityAssurance
+		qualityAssuranceEntries = requestedConfiguration.qualityAssurance
 			? summarizeQualityAssuranceAllTimeIssues(
 					qualityAssuranceIssues,
-					configuration.qualityAssurance.statusMapping.done,
+					requestedConfiguration.qualityAssurance.statusMapping.done,
 				)
 			: [];
+		cachedAt = Date.now();
+		writeCachedLeaderboardReport(reportKey, {
+			developerEntries,
+			qualityAssuranceEntries,
+			cachedAt,
+		});
 		reportSelection = reportKey;
 	} catch (error) {
+		if (revision !== loadRevision) return;
 		errorMessage =
 			error instanceof Error
 				? error.message
 				: "Leaderboard performance could not be loaded.";
 	} finally {
-		isLoading = false;
+		if (revision === loadRevision) isLoading = false;
 	}
 }
 
-onMount(() => {
-	void refreshReport();
+$effect(() => {
+	if (!isActive) return;
+	selectedReportKey;
+	untrack(() => void loadReport());
+});
+
+onDestroy(() => {
+	loadRevision += 1;
 });
 </script>
 
@@ -195,28 +242,24 @@ onMount(() => {
 		</div>
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-end">
 			<Field label="Scope" compact class="min-w-48">
-				<Select
-					bind:value={selectedScope}
-					onchange={refreshReport}
-					disabled={isLoading}
-				>
+				<Select bind:value={selectedScope} disabled={isLoading}>
 					<option value="board">Current boards</option>
 					<option value="global">All Jira projects</option>
 				</Select>
 			</Field>
 			<Field label="Season" compact class="min-w-36">
-				<Select
-					bind:value={selectedPeriod}
-					onchange={refreshReport}
-					disabled={isLoading}
-				>
+				<Select bind:value={selectedPeriod} disabled={isLoading}>
 					<option value="all">All time</option>
 					{#each selectableYears as year (year)}
 						<option value={String(year)}>{year}</option>
 					{/each}
 				</Select>
 			</Field>
-			<Button variant="secondary" onclick={refreshReport} loading={isLoading}>
+			<Button
+				variant="secondary"
+				onclick={() => void loadReport(true)}
+				loading={isLoading}
+			>
 				{isLoading ? "Updating…" : "Refresh scores"}
 			</Button>
 			<ShareSnapshotButton
@@ -226,10 +269,16 @@ onMount(() => {
 			/>
 		</div>
 	</header>
+	{#if hasCurrentReport && cachedAt !== null}
+		<p class="mt-4 text-xs text-muted" role="status">
+			Updated {new Date(cachedAt).toLocaleString()} · Scores saved in this
+			browser for 2 hours. Refresh scores to get the latest data.
+		</p>
+	{/if}
 
 	{#if errorMessage}
 		<div class="mt-6">
-			<Alert message={errorMessage} onRetry={refreshReport} />
+			<Alert message={errorMessage} onRetry={() => void loadReport(true)} />
 		</div>
 	{/if}
 
