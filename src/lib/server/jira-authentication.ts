@@ -1,4 +1,5 @@
 import type { JiraCredentials } from "./credential-vault";
+import { fetchWithoutRedirects } from "./fetch-without-redirects";
 import { isJiraCloudIdentifier } from "./jira-api-url";
 import { JiraClient, JiraRequestError } from "./jira-client";
 
@@ -40,9 +41,8 @@ export async function discoverJiraCloudIdentifier(
 	const discoveryUrl = new URL("/_edge/tenant_info", `${jiraSiteUrl}/`);
 	let response: Response;
 	try {
-		response = await fetch(discoveryUrl, {
+		response = await fetchWithoutRedirects(discoveryUrl, {
 			headers: { accept: "application/json" },
-			redirect: "error",
 			signal: AbortSignal.timeout(15_000),
 		});
 	} catch {

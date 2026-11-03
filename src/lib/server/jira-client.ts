@@ -21,6 +21,7 @@ import type { ResolvedDateRange } from "../domain/period-performance";
 import { buildResolvedIssuesQuery } from "../domain/period-performance";
 import type { JiraBoardConfiguration } from "../domain/setup";
 import type { JiraCredentials } from "./credential-vault";
+import { fetchWithoutRedirects } from "./fetch-without-redirects";
 import { jiraApiRequestUrl } from "./jira-api-url";
 
 type JsonObject = Record<string, unknown>;
@@ -380,11 +381,10 @@ export class JiraClient {
 
 		let response: Response;
 		try {
-			response = await fetch(requestUrl, {
+			response = await fetchWithoutRedirects(requestUrl, {
 				method: options.method ?? "GET",
 				headers: requestHeaders,
 				body: options.body ? JSON.stringify(options.body) : undefined,
-				redirect: "error",
 				signal: AbortSignal.timeout(30_000),
 			});
 		} catch (error) {
