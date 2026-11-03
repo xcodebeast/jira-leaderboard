@@ -78,8 +78,8 @@ async function requestJson<ResponseData>(
 	return payload as ResponseData;
 }
 
-/** API requests one paged result may take; each covers up to 4,000 Jira issues. */
-const MAXIMUM_ISSUE_BATCHES = 100;
+/** API requests one paged result may take; each covers up to 500 Jira issues. */
+const MAXIMUM_ISSUE_BATCHES = 1_000;
 
 interface IssueBatchResponse<Issue> {
 	issues: Issue[];

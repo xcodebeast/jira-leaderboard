@@ -336,10 +336,11 @@ export function qualityAssuranceBoardIssuePageRequest(
 }
 
 /**
- * Jira pages one API request fetches at most. Cloudflare's free plan allows 50 outgoing
- * requests per incoming request, so larger results continue from `nextPageToken`.
+ * Jira pages one API request fetches at most. Cloudflare's free plan allows 10 ms of CPU per
+ * request (parsing a 100-issue page takes about 1.5 ms) and 50 outgoing requests, so larger
+ * results continue from `nextPageToken`.
  */
-export const JIRA_PAGES_PER_REQUEST = 40;
+export const JIRA_PAGES_PER_REQUEST = 5;
 
 /** One request's share of a paged Jira result; `nextPageToken` is null once it is complete. */
 export interface IssueBatch<Issue> {
