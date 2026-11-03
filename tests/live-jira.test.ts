@@ -99,12 +99,12 @@ liveTest(
 			utcDateWithOffset(-6),
 			utcDateWithOffset(0),
 		);
-		const resolvedIssues = await client.resolvedIssues(
+		const resolvedBatch = await client.resolvedIssues(
 			buildProjectScopeQuery(projectKey),
 			range,
 			suggestion.fields,
 		);
-		expect(Array.isArray(resolvedIssues)).toBe(true);
+		expect(Array.isArray(resolvedBatch.issues)).toBe(true);
 	},
 	120_000,
 );

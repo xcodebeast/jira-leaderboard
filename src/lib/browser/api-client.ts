@@ -78,6 +78,41 @@ async function requestJson<ResponseData>(
 	return payload as ResponseData;
 }
 
+/** API requests one paged result may take; each covers up to 4,000 Jira issues. */
+const MAXIMUM_ISSUE_BATCHES = 100;
+
+interface IssueBatchResponse<Issue> {
+	issues: Issue[];
+	nextPageToken: string | null;
+}
+
+/**
+ * Posts to a paged issue endpoint until it has every issue. The server reads a bounded
+ * number of Jira pages per request and returns a `nextPageToken` to continue from.
+ */
+async function requestAllIssues<
+	Issue,
+	Response extends IssueBatchResponse<Issue>,
+>(pathname: string, body: Record<string, unknown>): Promise<Response> {
+	let response = await requestJson<Response>(pathname, {
+		method: "POST",
+		body,
+	});
+	const issues = [...response.issues];
+	for (let batch = 1; response.nextPageToken; batch += 1) {
+		if (batch >= MAXIMUM_ISSUE_BATCHES) {
+			throw new BrowserApiError(502, "Jira returned too many result pages.");
+		}
+		response = await requestJson<Response>(pathname, {
+			method: "POST",
+			body: { ...body, pageToken: response.nextPageToken },
+		});
+		issues.push(...response.issues);
+	}
+
+	return { ...response, issues };
+}
+
 export async function loadSession(): Promise<SessionStatus> {
 	const session = await requestJson<SessionStatus>("/api/session");
 	if (!session.connected) clearLeaderboardCache();
@@ -202,20 +237,17 @@ export async function loadDevelopmentAllTimeIssues(
 	fieldMapping: JiraFieldMapping,
 	contributorAccountIdentifier: string | null = null,
 ): Promise<JiraIssue[]> {
-	const response = await requestJson<{ issues: JiraIssue[] }>(
-		"/api/jira/development-all-time-issues",
-		{
-			method: "POST",
-			body: {
-				boardIdentifier,
-				scope,
-				doneStatus,
-				year,
-				fieldMapping,
-				contributorAccountIdentifier,
-			},
-		},
-	);
+	const response = await requestAllIssues<
+		JiraIssue,
+		IssueBatchResponse<JiraIssue>
+	>("/api/jira/development-all-time-issues", {
+		boardIdentifier,
+		scope,
+		doneStatus,
+		year,
+		fieldMapping,
+		contributorAccountIdentifier,
+	});
 	return response.issues;
 }
 
@@ -227,20 +259,17 @@ export async function loadQualityAssuranceAllTimeIssues(
 	fieldMapping: QualityAssuranceFieldMapping,
 	contributorAccountIdentifier: string | null = null,
 ): Promise<JiraQualityAssuranceIssue[]> {
-	const response = await requestJson<{ issues: JiraQualityAssuranceIssue[] }>(
-		"/api/jira/quality-assurance-all-time-issues",
-		{
-			method: "POST",
-			body: {
-				boardIdentifier,
-				scope,
-				doneStatus,
-				year,
-				fieldMapping,
-				contributorAccountIdentifier,
-			},
-		},
-	);
+	const response = await requestAllIssues<
+		JiraQualityAssuranceIssue,
+		IssueBatchResponse<JiraQualityAssuranceIssue>
+	>("/api/jira/quality-assurance-all-time-issues", {
+		boardIdentifier,
+		scope,
+		doneStatus,
+		year,
+		fieldMapping,
+		contributorAccountIdentifier,
+	});
 	return response.issues;
 }
 
@@ -256,8 +285,9 @@ export async function loadPeriodIssues(request: PeriodIssueRequest): Promise<{
 	issues: JiraIssue[];
 	range: ResolvedDateRange;
 }> {
-	return requestJson("/api/jira/period-issues", {
-		method: "POST",
-		body: request,
-	});
+	const response = await requestAllIssues<
+		JiraIssue,
+		IssueBatchResponse<JiraIssue> & { range: ResolvedDateRange }
+	>("/api/jira/period-issues", { ...request });
+	return { issues: response.issues, range: response.range };
 }

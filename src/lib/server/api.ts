@@ -139,3 +139,12 @@ export function queryPositiveIntegerWithMaximum(
 
 	return parsedValue;
 }
+
+/** The `pageToken` a client sends to continue a paged result, or null for the first batch. */
+export function optionalPageToken(
+	object: Record<string, unknown>,
+): string | null {
+	return object.pageToken == null
+		? null
+		: requiredString(object, "pageToken", "a page token", 4_000);
+}

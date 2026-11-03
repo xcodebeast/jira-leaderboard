@@ -3,6 +3,7 @@ import {
 	apiJson,
 	leaderboardScope,
 	optionalCalendarYear,
+	optionalPageToken,
 	readJsonObject,
 	requiredPositiveInteger,
 	requiredString,
@@ -37,15 +38,17 @@ export const POST: RequestHandler = async ({ cookies, request }) => {
 						"contributor account",
 						256,
 					);
+		const pageToken = optionalPageToken(payload);
 		const fieldMapping = parseQualityAssuranceFieldMapping(payload);
 		const client = new JiraClient(requireCredentialSession(cookies));
-		const issues =
+		const batch =
 			scope === "global"
 				? await client.qualityAssuranceGlobalDoneIssues(
 						doneStatus,
 						year,
 						fieldMapping,
 						contributorAccountIdentifier,
+						pageToken,
 					)
 				: await client.qualityAssuranceBoardDoneIssues(
 						boardIdentifier,
@@ -53,9 +56,10 @@ export const POST: RequestHandler = async ({ cookies, request }) => {
 						year,
 						fieldMapping,
 						contributorAccountIdentifier,
+						pageToken,
 					);
 
-		return apiJson({ issues });
+		return apiJson(batch);
 	} catch (error) {
 		return apiErrorResponse(error);
 	}

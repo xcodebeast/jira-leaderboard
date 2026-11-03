@@ -7,6 +7,7 @@ import {
 	apiErrorResponse,
 	apiJson,
 	ClientInputError,
+	optionalPageToken,
 	readJsonObject,
 	requiredString,
 } from "$lib/server/api";
@@ -41,8 +42,13 @@ export const POST: RequestHandler = async ({ cookies, request }) => {
 			);
 		}
 		const client = new JiraClient(requireCredentialSession(cookies));
-		const issues = await client.resolvedIssues(scopeQuery, range, fieldMapping);
-		return apiJson({ issues, range });
+		const batch = await client.resolvedIssues(
+			scopeQuery,
+			range,
+			fieldMapping,
+			optionalPageToken(payload),
+		);
+		return apiJson({ ...batch, range });
 	} catch (error) {
 		return apiErrorResponse(error);
 	}

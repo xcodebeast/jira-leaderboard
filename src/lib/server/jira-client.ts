@@ -335,6 +335,18 @@ export function qualityAssuranceBoardIssuePageRequest(
 	);
 }
 
+/**
+ * Jira pages one API request fetches at most. Cloudflare's free plan allows 50 outgoing
+ * requests per incoming request, so larger results continue from `nextPageToken`.
+ */
+export const JIRA_PAGES_PER_REQUEST = 40;
+
+/** One request's share of a paged Jira result; `nextPageToken` is null once it is complete. */
+export interface IssueBatch<Issue> {
+	issues: Issue[];
+	nextPageToken: string | null;
+}
+
 export class JiraRequestError extends Error {
 	readonly statusCode: number;
 	readonly authenticationFailure: boolean;
@@ -713,13 +725,22 @@ export class JiraClient {
 			fieldMapping.storyPointsFieldIdentifier,
 			fieldMapping.testerFieldIdentifier,
 		].sort();
-		return this.boardIssues(
+		const batch = await this.boardIssues(
 			boardIdentifier,
 			requestedFields,
 			`sprint = ${sprintIdentifier}`,
 			"quality assurance issue page",
 			(issue) => normalizeJiraQualityAssuranceIssue(issue, fieldMapping),
+			null,
 		);
+		if (batch.nextPageToken) {
+			throw new JiraRequestError(
+				502,
+				"This sprint has too many issues to load.",
+			);
+		}
+
+		return batch.issues;
 	}
 
 	async developmentBoardDoneIssues(
@@ -728,7 +749,8 @@ export class JiraClient {
 		year: number | null,
 		fieldMapping: JiraFieldMapping,
 		contributorAccountIdentifier: string | null = null,
-	): Promise<JiraIssue[]> {
+		pageToken: string | null = null,
+	): Promise<IssueBatch<JiraIssue>> {
 		return this.boardIssues(
 			boardIdentifier,
 			this.requestedIssueFields(fieldMapping, true),
@@ -740,6 +762,7 @@ export class JiraClient {
 			),
 			"development all-time issue page",
 			(issue) => normalizeJiraIssue(issue, fieldMapping),
+			pageToken,
 		);
 	}
 
@@ -748,7 +771,8 @@ export class JiraClient {
 		year: number | null,
 		fieldMapping: JiraFieldMapping,
 		contributorAccountIdentifier: string | null = null,
-	): Promise<JiraIssue[]> {
+		pageToken: string | null = null,
+	): Promise<IssueBatch<JiraIssue>> {
 		return this.searchIssues(
 			buildDoneIssuesQuery(
 				doneStatus,
@@ -759,6 +783,7 @@ export class JiraClient {
 			this.requestedIssueFields(fieldMapping, true),
 			"global development issue page",
 			(issue) => normalizeJiraIssue(issue, fieldMapping),
+			pageToken,
 		);
 	}
 
@@ -768,7 +793,8 @@ export class JiraClient {
 		year: number | null,
 		fieldMapping: QualityAssuranceFieldMapping,
 		contributorAccountIdentifier: string | null = null,
-	): Promise<JiraQualityAssuranceIssue[]> {
+		pageToken: string | null = null,
+	): Promise<IssueBatch<JiraQualityAssuranceIssue>> {
 		const requestedFields = [
 			"resolutiondate",
 			"summary",
@@ -787,6 +813,7 @@ export class JiraClient {
 			),
 			"quality assurance all-time issue page",
 			(issue) => normalizeJiraQualityAssuranceIssue(issue, fieldMapping),
+			pageToken,
 		);
 	}
 
@@ -795,7 +822,8 @@ export class JiraClient {
 		year: number | null,
 		fieldMapping: QualityAssuranceFieldMapping,
 		contributorAccountIdentifier: string | null = null,
-	): Promise<JiraQualityAssuranceIssue[]> {
+		pageToken: string | null = null,
+	): Promise<IssueBatch<JiraQualityAssuranceIssue>> {
 		const requestedFields = [
 			"resolutiondate",
 			"summary",
@@ -813,6 +841,7 @@ export class JiraClient {
 			requestedFields,
 			"global quality assurance issue page",
 			(issue) => normalizeJiraQualityAssuranceIssue(issue, fieldMapping),
+			pageToken,
 		);
 	}
 
@@ -820,12 +849,14 @@ export class JiraClient {
 		scopeQuery: string,
 		range: ResolvedDateRange,
 		fieldMapping: JiraFieldMapping,
-	): Promise<JiraIssue[]> {
+		pageToken: string | null = null,
+	): Promise<IssueBatch<JiraIssue>> {
 		return this.searchIssues(
 			buildResolvedIssuesQuery(scopeQuery, range),
 			this.requestedIssueFields(fieldMapping, true),
 			"resolved issue page",
 			(issue) => normalizeJiraIssue(issue, fieldMapping),
+			pageToken,
 		);
 	}
 
@@ -834,38 +865,24 @@ export class JiraClient {
 		requestedFields: string[],
 		pageDescription: string,
 		normalizeIssue: (value: unknown) => Issue,
-	): Promise<Issue[]> {
-		const issues: Issue[] = [];
-		let nextPageToken: string | null = null;
-		for (let pageNumber = 0; pageNumber < 500; pageNumber += 1) {
-			const body: JsonObject = {
-				jql: jiraQuery,
-				fields: requestedFields,
-				fieldsByKeys: false,
-				maxResults: 100,
-			};
-			if (nextPageToken) {
-				body.nextPageToken = nextPageToken;
-			}
-			const page = requiredObject(
-				await this.request("/rest/api/3/search/jql", { method: "POST", body }),
-				pageDescription,
-			);
-			const pageIssues = arrayValue(page.issues).map(normalizeIssue);
-			issues.push(...pageIssues);
-			nextPageToken = stringValue(page.nextPageToken);
-			if (
-				pageIssues.length === 0 ||
-				booleanValue(page.isLast) === true ||
-				!nextPageToken
-			) {
-				return issues;
-			}
-		}
-
-		throw new JiraRequestError(
-			502,
-			"Jira returned too many search result pages.",
+		pageToken: string | null,
+	): Promise<IssueBatch<Issue>> {
+		return this.issueBatch(
+			pageToken,
+			pageDescription,
+			normalizeIssue,
+			(nextPageToken) => {
+				const body: JsonObject = {
+					jql: jiraQuery,
+					fields: requestedFields,
+					fieldsByKeys: false,
+					maxResults: 100,
+				};
+				if (nextPageToken) {
+					body.nextPageToken = nextPageToken;
+				}
+				return this.request("/rest/api/3/search/jql", { method: "POST", body });
+			},
 		);
 	}
 
@@ -893,18 +910,40 @@ export class JiraClient {
 		jiraQuery: string,
 		pageDescription: string,
 		normalizeIssue: (value: unknown) => Issue,
-	): Promise<Issue[]> {
+		pageToken: string | null,
+	): Promise<IssueBatch<Issue>> {
+		return this.issueBatch(
+			pageToken,
+			pageDescription,
+			normalizeIssue,
+			(nextPageToken) => {
+				const pageRequest = boardIssuePageRequest(
+					boardIdentifier,
+					requestedFields,
+					jiraQuery,
+					nextPageToken,
+				);
+				return this.request(pageRequest.pathname, { query: pageRequest.query });
+			},
+		);
+	}
+
+	/** Reads up to JIRA_PAGES_PER_REQUEST token-paged Jira pages, starting at `pageToken`. */
+	private async issueBatch<Issue>(
+		pageToken: string | null,
+		pageDescription: string,
+		normalizeIssue: (value: unknown) => Issue,
+		fetchPage: (nextPageToken: string | null) => Promise<unknown>,
+	): Promise<IssueBatch<Issue>> {
 		const issues: Issue[] = [];
-		let nextPageToken: string | null = null;
-		for (let pageNumber = 0; pageNumber < 500; pageNumber += 1) {
-			const pageRequest = boardIssuePageRequest(
-				boardIdentifier,
-				requestedFields,
-				jiraQuery,
-				nextPageToken,
-			);
+		let nextPageToken = pageToken;
+		for (
+			let pageNumber = 0;
+			pageNumber < JIRA_PAGES_PER_REQUEST;
+			pageNumber += 1
+		) {
 			const page = requiredObject(
-				await this.request(pageRequest.pathname, { query: pageRequest.query }),
+				await fetchPage(nextPageToken),
 				pageDescription,
 			);
 			const pageIssues = arrayValue(page.issues).map(normalizeIssue);
@@ -915,13 +954,10 @@ export class JiraClient {
 				booleanValue(page.isLast) === true ||
 				!nextPageToken
 			) {
-				return issues;
+				return { issues, nextPageToken: null };
 			}
 		}
 
-		throw new JiraRequestError(
-			502,
-			"Jira returned too many board issue pages.",
-		);
+		return { issues, nextPageToken };
 	}
 }
