@@ -89,7 +89,7 @@ describe("Jira issue batches", () => {
 			const nextPageToken =
 				sentTokens.length < 3 ? `batch-${sentTokens.length}` : null;
 			return jsonResponse({
-				issues: [{ key: `ISSUE-${sentTokens.length}` }],
+				issues: [{ issueKey: `ISSUE-${sentTokens.length}` }],
 				nextPageToken,
 			});
 		}) as unknown as typeof fetch;
@@ -101,7 +101,7 @@ describe("Jira issue batches", () => {
 			fieldMapping,
 		);
 		expect(sentTokens).toEqual([null, "batch-1", "batch-2"]);
-		expect(issues.map((issue) => issue.key)).toEqual([
+		expect(issues.map((issue) => issue.issueKey)).toEqual([
 			"ISSUE-1",
 			"ISSUE-2",
 			"ISSUE-3",
