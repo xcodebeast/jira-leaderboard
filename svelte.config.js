@@ -1,11 +1,11 @@
-import adapterNode from "@sveltejs/adapter-node";
+import adapterCloudflare from "@sveltejs/adapter-cloudflare";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
 /** @type {import('@sveltejs/kit').Config} */
 const configuration = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapterNode(),
+		adapter: adapterCloudflare(),
 		csp: {
 			mode: "nonce",
 			directives: {

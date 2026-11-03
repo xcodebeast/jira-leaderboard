@@ -45,6 +45,19 @@ Go to `http://localhost:5173` to start. Follow the onboarding instructions and c
 
 Supports classic and scoped Atlassian API tokens; Cloud IDs are auto-detected—no manual input needed. For required scopes or API token help, see Atlassian's [API token docs](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/).
 
+## Deploying
+
+The app runs on Cloudflare Workers (`wrangler.jsonc`). Set the two secrets once, then deploy:
+
+```sh
+bunx wrangler secret put SESSION_ENCRYPTION_KEY
+bunx wrangler secret put JIRA_ALLOWED_HOSTS
+bun run deploy
+```
+
+Deploying needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, or a `wrangler login`. `bun run preview` serves the
+production build locally in workerd, Cloudflare's runtime.
+
 ## Checks
 
 ```sh

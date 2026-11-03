@@ -1,0 +1,12 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "jira-leaderboard",
+	"account_id": "965120c850b7ee995c5c76c5faad3fca",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"compatibility_date": "2026-11-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": { "binding": "ASSETS", "directory": ".svelte-kit/cloudflare" },
+	// Secrets: SESSION_ENCRYPTION_KEY and JIRA_ALLOWED_HOSTS (wrangler secret put).
+	"vars": { "NODE_ENV": "production" },
+	"observability": { "enabled": true }
+}

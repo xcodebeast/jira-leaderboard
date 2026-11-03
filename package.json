@@ -14,12 +14,13 @@
 		"format": "biome format --write .",
 		"format:check": "biome format .",
 		"lint": "biome lint .",
-		"start": "bun build/index.js",
+		"deploy": "vite build && wrangler deploy",
+		"preview": "vite build && wrangler dev",
 		"test": "bun test"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.8",
-		"@sveltejs/adapter-node": "5.5.7",
+		"@sveltejs/adapter-cloudflare": "7.2.9",
 		"@sveltejs/kit": "2.70.2",
 		"@sveltejs/vite-plugin-svelte": "7.3.0",
 		"@tailwindcss/vite": "4.3.3",
@@ -29,6 +30,7 @@
 		"svelte-check": "4.7.6",
 		"tailwindcss": "4.3.3",
 		"typescript": "6.0.3",
-		"vite": "8.2.1"
+		"vite": "8.2.1",
+		"wrangler": "^4.157.0"
 	}
 }
